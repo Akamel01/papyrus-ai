@@ -1,0 +1,113 @@
+{
+  "execution_id": "PROD-MIGRATE-20260318-001",
+  "status": "SUCCESS",
+  "started_at": "2026-03-18T00:00:00Z",
+  "completed_at": "2026-03-18T00:00:00Z",
+
+  "stages_completed": [
+    {
+      "stage_id": "STAGE-1",
+      "name": "Create Security Infrastructure Files",
+      "status": "success",
+      "files_created": [
+        ".env.example",
+        "src/utils/env_resolver.py",
+        "scripts/setup.sh",
+        "scripts/validate.sh",
+        "scripts/validate_ollama.sh"
+      ]
+    },
+    {
+      "stage_id": "STAGE-2",
+      "name": "Secure Configuration Files",
+      "status": "success",
+      "backup_created": "config/acquisition_config.yaml.backup.pre-migration",
+      "secrets_removed": [
+        "OpenAlex API key",
+        "Semantic Scholar API key",
+        "4 personal email addresses"
+      ],
+      "env_vars_added": [
+        "${SME_EMAILS}",
+        "${OPENALEX_API_KEY}",
+        "${SEMANTIC_SCHOLAR_API_KEY}"
+      ]
+    },
+    {
+      "stage_id": "STAGE-3",
+      "name": "Update Helper Functions",
+      "status": "success",
+      "backup_created": "src/utils/helpers.py.backup.pre-migration",
+      "changes": "Integrated env_resolver into load_config()"
+    },
+    {
+      "stage_id": "STAGE-4",
+      "name": "Harden Docker Compose",
+      "status": "success",
+      "backup_created": "docker-compose.yml.backup.pre-migration",
+      "changes": {
+        "images_pinned": {
+          "redis": "7.4-alpine",
+          "qdrant": "v1.12.6",
+          "ollama": "0.6.2"
+        },
+        "ports_removed": ["redis:6380", "qdrant:6334,6335", "ollama:11435", "dashboard-api:8400"],
+        "bind_mounts_removed": [".:/app"],
+        "config_mounts_readonly": true,
+        "env_file_added": ["app", "dashboard-backend"]
+      }
+    },
+    {
+      "stage_id": "STAGE-5",
+      "name": "Update .dockerignore",
+      "status": "success",
+      "patterns_added": [".env", ".env.*", "!.env.example"]
+    },
+    {
+      "stage_id": "STAGE-6",
+      "name": "Create Root .gitignore",
+      "status": "success",
+      "file_created": ".gitignore"
+    }
+  ],
+
+  "validation_results": {
+    "all_passed": true,
+    "checks": [
+      {"id": "V-1", "name": "No OpenAlex key in config", "result": "pass"},
+      {"id": "V-2", "name": "No S2 key in config", "result": "pass"},
+      {"id": "V-3", "name": "No personal emails in config", "result": "pass"},
+      {"id": "V-4", "name": "env_resolver.py syntax valid", "result": "pass"},
+      {"id": "V-5", "name": "helpers.py syntax valid", "result": "pass"},
+      {"id": "V-6", "name": "Env var references present", "result": "pass"},
+      {"id": "V-7", "name": "No :latest tags", "result": "pass"},
+      {"id": "V-8", "name": "No dev bind mount", "result": "pass"},
+      {"id": "V-9", "name": "env_file directives present", "result": "pass"}
+    ]
+  },
+
+  "artifacts": [
+    "MIGRATION_REPORT.md",
+    "migration_execution_manifest.json",
+    "migration_execution_log.json",
+    "config/acquisition_config.yaml.backup.pre-migration",
+    "src/utils/helpers.py.backup.pre-migration",
+    "docker-compose.yml.backup.pre-migration"
+  ],
+
+  "required_actions": [
+    "Run scripts/setup.sh to create .env",
+    "Run docker compose build --no-cache",
+    "Run docker compose up -d",
+    "Run docker exec -it sme_ollama ollama signin",
+    "Run scripts/validate.sh",
+    "Rotate API keys at OpenAlex and Semantic Scholar"
+  ],
+
+  "rollback_commands": [
+    "copy config\\acquisition_config.yaml.backup.pre-migration config\\acquisition_config.yaml",
+    "copy src\\utils\\helpers.py.backup.pre-migration src\\utils\\helpers.py",
+    "copy docker-compose.yml.backup.pre-migration docker-compose.yml",
+    "del .env.example src\\utils\\env_resolver.py scripts\\setup.sh scripts\\validate.sh scripts\\validate_ollama.sh .gitignore"
+  ]
+}

@@ -1,0 +1,9 @@
+tunnel: 7f31e934-6187-4007-b382-37d64c2126e7
+credentials-file: /etc/cloudflared/credentials.json
+
+ingress:
+  - hostname: papyrus-ai.net
+    service: http://caddy:80
+  - hostname: "*.papyrus-ai.net"
+    service: http://caddy:80
+  - service: http_status:404

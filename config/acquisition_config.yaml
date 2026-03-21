@@ -1,0 +1,353 @@
+# SME Research Assistant - Paper Acquisition Configuration
+# 
+# This file configures the autonomous paper discovery and download pipeline.
+# Modify the keywords and filters to match your research field.
+
+acquisition:
+  # Use SQLite database instead of JSON for paper storage
+  # Recommended for 100K+ papers. Set to true to enable.
+  use_sqlite: false
+  
+  # ================================================================
+  # KEYWORDS & SEARCH TERMS
+  # ================================================================
+  # Add keywords for your research domain. Each keyword will be
+  # searched across all enabled APIs. Search includes title, abstract,
+  # and keywords (not just title).
+  keywords:
+      # 1. Exact phrase only:
+    #- '"BC health authorities"'
+    
+    # 2. Exact phrase + Location (USA/Canada/United States):
+    #- '"Cost of Crash" AND ("BC" OR "British Columbia" OR "Canada")'
+    #- '"concussion" AND ("BC" OR "British Columbia")'
+    
+    # 3. Two exact phrases required:
+    - '"Road Safety" AND "Autonomous Vehicles" '
+    - '"Road Safety" AND "self-driving"'
+    - '"Road Safety" AND "Extreme Value Theory"'
+    - '"Road Safety" AND "conflicts"'
+
+    
+
+   
+
+
+  # ================================================================
+  # API CONFIGURATION
+  # ================================================================
+  # Multiple emails for load balancing and fallback
+  # The system will rotate through emails to maximize rate limits
+  # Email(s) loaded from environment variable for security
+  # Configure via .env file or scripts/setup.sh
+  emails:
+    - "${SME_EMAILS}"
+
+  apis:
+    openalex:
+      enabled: true
+      # API key (required as of Feb 2025)
+      api_key: "${OPENALEX_API_KEY}"
+      # Search fields: title, abstract, keywords (fulltext search)
+      search_fields: ["title", "abstract", "keywords"]
+      requests_per_minute: 60
+      timeout_seconds: 30
+      max_retries: 3
+      results_per_page: 100
+    
+    semantic_scholar:
+      enabled: true  # Disabled until API key is provided
+      # Optional API key for higher rate limits
+      # Get one at: https://www.semanticscholar.org/product/api
+      api_key: "${SEMANTIC_SCHOLAR_API_KEY}"
+      requests_per_minute: 50
+      timeout_seconds: 30
+      max_retries: 3
+    
+    unpaywall:
+      enabled: true
+      requests_per_minute: 60
+      timeout_seconds: 30
+    
+    arxiv:
+      enabled: true
+      requests_per_minute: 20
+      timeout_seconds: 30
+
+    crossref:
+      enabled: true
+      # Uses 'email' from above for polite pool
+      requests_per_minute: 50
+      timeout_seconds: 30
+
+  # ================================================================
+  # SEARCH FILTERS
+  # ================================================================
+  filters:
+    # Minimum publication year (filter out older papers)
+    min_year: 2020
+
+    # Maximum publication year (inclusive). Can be a specific year (e.g., 2025) or "present"
+    max_year: "present"
+    
+    # Maximum results per keyword per source
+    # Note: With broad keywords like "Transportation", expect 400K+ papers
+    max_per_keyword: 1000000
+    
+    # Maximum total papers to process per run
+    max_total: 10000000
+    
+    # Batch size for discovery (papers per DB commit)
+    discovery_batch_size: 50
+    
+    # Publication types to include (Boolean selection)
+    publication_types:
+      journal_article: true
+      conference_paper: true
+      preprint: false
+      book: false
+      book_chapter: false
+      review: true
+      report: false
+      dataset: false
+      editorial: false
+      thesis: false
+      clinical_trial: false
+      letter: false
+      standard: false
+    
+    # Only include open access papers
+    # Set to false to include all papers (requires manual PDF acquisition)
+    open_access_only: true
+
+  # ================================================================
+  # DOWNLOAD SETTINGS
+  # ================================================================
+  download:
+    # Number of retry attempts per paper
+    max_retries: 5
+    
+    # Download timeout in seconds
+    timeout_seconds: 120
+    
+    # Maximum file size (MB)
+    max_file_size_mb: 100
+    
+    # Rate limit for downloads
+    requests_per_minute: 60
+    
+    # Skip papers already downloaded
+    skip_existing: true
+    
+    # Retry previously failed downloads
+    retry_failed: true
+    
+    # Batch size for download polling (papers per poll cycle)
+    poll_batch_size: 20
+    
+    # Maximum concurrent download workers
+    max_workers: 4
+
+  # ================================================================
+  # ERROR HANDLING & FALLBACK
+  # ================================================================
+  error_handling:
+    # Rotate emails when rate limited
+    rotate_emails_on_429: true
+    
+    # Cooldown period after email rate limited (seconds)
+    email_cooldown_seconds: 300
+    
+    # Maximum time to wait for an available email (seconds)
+    email_wait_timeout_seconds: 600
+    
+    # Continue on individual failures
+    continue_on_error: true
+    
+    # Maximum consecutive failures before pause
+    max_consecutive_failures: 50
+    
+    # Pause duration (seconds) after max failures
+    pause_duration_seconds: 300
+    
+    # Fallback sources for PDF resolution
+    pdf_fallback_chain:
+      - "unpaywall"
+      - "semantic_scholar"
+      - "arxiv"
+      - "direct_doi"
+
+  # ================================================================
+  # STATE MANAGEMENT
+  # ================================================================
+  state:    
+    # Directory to store progress files
+    state_file: "data/pipeline_state.json"
+    
+    # Directory for downloaded PDFs (New papers only)
+    updated_papers_dir: "DataBase/UpdatedPapers"
+    
+    # Directory for interim chunk pkl files
+    interim_chunks_dir: "data/interim_chunks"
+    
+    # File to track failed downloads
+    failed_downloads_file: "data/failed_downloads.json"
+    
+    # Discovery results cache
+    discovery_cache_file: "data/discovery_cache.json"
+
+  # ================================================================
+  # MONITORING & ALERTING
+  # ================================================================
+  monitoring:
+    # Enable pipeline monitoring
+    enabled: true
+    
+    # Current run metrics file
+    metrics_file: "data/pipeline_metrics.json"
+    
+    # Historical runs file (JSONL format)
+    history_file: "data/pipeline_history.jsonl"
+    
+    # Heartbeat interval in seconds
+    heartbeat_interval_seconds: 30
+    
+    # Alert thresholds
+    alerts:
+      # Pipeline considered stuck if no progress for this many seconds
+      stuck_threshold_seconds: 300
+      
+      # Alert if failure rate exceeds this threshold (0.0-1.0)
+      failure_rate_threshold: 0.20
+      
+      # Alert if disk free space falls below this (GB)
+      disk_free_threshold_gb: 10
+      
+      # Alert if GPU memory usage exceeds this (%)
+      gpu_memory_threshold_percent: 90
+      
+      # Alert if throughput falls below this (papers/min)
+      low_throughput_threshold: 0.5
+
+# ================================================================
+# PROCESSING PIPELINE
+# ================================================================
+# Settings for the ingestion pipeline (parsing, chunking, embedding)
+
+processing:
+  # Number of CPU workers for PDF parsing
+  parsing_workers: 16
+  
+  # Quality threshold for parsed text (0.0-1.0)
+  quality_threshold: 0.7
+  
+  # Chunk size in tokens
+  chunk_size: 800
+  
+  # Chunk overlap in tokens
+  chunk_overlap: 150
+  
+  # Batch size for chunking phase (papers per PKL file)
+  chunk_batch_size: 10
+  
+  # Batch size for embedding source polling (papers per poll cycle in streaming mode)
+  embed_source_batch_size: 100
+  
+  # Enable BM25 index update (legacy)
+  update_bm25: true
+  
+  # Save intermediate chunks to PKL files
+  save_interim_chunks: true
+  
+  # Prefer GPU for all GPU-suitable tasks
+  prefer_gpu: true
+
+# ================================================================
+# BM25 INDEX
+# ================================================================
+# Settings for the BM25 keyword search index
+
+bm25:
+  # Enable BM25 index rebuild after embedding phase
+  # Set to false if not using hybrid search
+  enabled: true
+  
+  # Path to the BM25 index file
+  index_path: "data/bm25_index_tantivy"
+
+# ================================================================
+# EMBEDDING
+# ================================================================
+# Settings specific to the embedding model
+
+embedding:
+  # Maximum sequence length (tokens) - caps VRAM usage
+  # RTX 4070 Super 12GB: use 4096
+  # RTX 3090 24GB: can use up to 8192
+  max_seq_length: 1024
+  
+  # Normalize embeddings (recommended)
+  normalize: true
+
+  # Model Selection
+  model_name: "qwen3-embedding:8b"  # Ollama tag (was HF name; remote_url routes to Ollama)
+  quantization: "4bit"  # REQUIRED for 12GB VRAM (4070 Super)
+  batch_size: 64  # Safe reliability optimized value
+  collection_name: "sme_papers_v2"
+
+  # Remote Embedding via Ollama
+  # Routes embedding to Dockerized Ollama (sme_ollama container) instead of loading
+  # TransformerEmbedder locally. Eliminates 4-5GB continuous VRAM from sme_app.
+  remote_url: "http://sme_ollama:11434"
+  
+  # Vector Store Connection
+  vector_store:
+    host: "sme_qdrant"  # Docker service name (matches container_name in docker-compose.yml)
+    port: 6333
+    collection_name: "sme_papers_v2"
+    # Batch size for Qdrant upsert operations
+    # Recommended: 100-1000 for optimal network efficiency
+    # Higher values = fewer HTTP requests, more memory usage
+    qdrant_batch_size: 100
+
+# ================================================================
+# SCHEDULING
+# ================================================================
+# Settings for automated scheduled runs
+
+scheduling:
+  # Enable scheduled execution
+  enabled: true
+  
+  # Discovery/Download schedule (weekly on Sunday at 2 AM)
+  discovery_cron: "0 2 * * 0"
+  
+  # Processing runs continuously while work exists
+  # Parsing and chunking run as long as there are unprocessed PDFs
+  continuous_processing: true
+  
+  # Check interval for new work (seconds)
+  processing_check_interval: 60
+  
+  # Timezone
+  timezone: "America/Los_Angeles"
+
+# ================================================================
+# LOGGING
+# ================================================================
+# Logging configuration
+
+logging:
+  # Log file path
+  log_file: "data/autonomous_update.log"
+  
+  # Log level: DEBUG, INFO, WARNING, ERROR
+  log_level: "INFO"
+  
+  # Also log to console
+  console_output: true
+
+
+
+  # Also log to console
+  console_output: true

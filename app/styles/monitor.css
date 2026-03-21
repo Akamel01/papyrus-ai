@@ -1,0 +1,468 @@
+/* ============================================
+   LIVE MONITOR PANEL STYLES
+   SME Research Assistant
+   ============================================ */
+
+/* ===== PANEL CONTAINER ===== */
+/* NOTE: Position, size, and dimensions are dynamically controlled by main.py */
+/* The following hardcoded values are kept for reference but NOT applied */
+#live-monitor-panel {
+    /* position: fixed; -- Set in main.py */
+    /* top: 70px; -- Set in main.py (MONITOR_TOP_OFFSET_PX) */
+    /* right: 20px; -- Set in main.py (MONITOR_RIGHT_MARGIN_PX) */
+    /* width: 320px; -- Set in main.py (MONITOR_WIDTH_PX = 518px Golden Ratio) */
+    /* max-height: calc(100vh - 90px); -- Replaced by height in main.py */
+    background: #0f0f0f;
+    border: 1px solid #2a2a2a;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    /* z-index: 999; -- Set in main.py */
+    /* display: flex; -- Set in main.py */
+    /* flex-direction: column; -- Set in main.py */
+    overflow: hidden;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* ===== HEADER ===== */
+.monitor-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: #0a0a0a;
+    border-bottom: 1px solid #2a2a2a;
+    flex-shrink: 0;
+}
+
+.monitor-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #ffffff;
+    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.monitor-title-icon {
+    color: #f59e0b;
+}
+
+/* ===== STATUS BADGES ===== */
+.monitor-status-badge {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 4px 8px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.monitor-status-badge.idle {
+    color: #00ff88;
+    background: rgba(0, 255, 136, 0.1);
+}
+
+.monitor-status-badge.processing {
+    color: #ff9500;
+    background: rgba(255, 149, 0, 0.1);
+    animation: pulse-badge 2s ease-in-out infinite;
+}
+
+.monitor-status-badge.complete {
+    color: #00ff88;
+    background: rgba(0, 255, 136, 0.1);
+}
+
+@keyframes pulse-badge {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.7;
+    }
+}
+
+/* ===== PROGRESS BAR ===== */
+.monitor-progress-container {
+    padding: 12px 16px;
+    background: #0a0a0a;
+    border-bottom: 1px solid #2a2a2a;
+    flex-shrink: 0;
+}
+
+.monitor-progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.monitor-progress-label {
+    color: #6b7280;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.monitor-progress-value {
+    color: #00ff88;
+    font-size: 10px;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.monitor-progress-bar {
+    width: 100%;
+    height: 4px;
+    background: #2a2a2a;
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.monitor-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #ff9500, #00ff88);
+    border-radius: 2px;
+    transition: width 0.3s ease;
+}
+
+/* ===== STEP HISTORY (SCROLLABLE) ===== */
+.monitor-step-history {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 16px;
+    background: #0f0f0f;
+    min-height: 100px;
+    max-height: 300px;
+}
+
+/* Custom scrollbar for step history */
+.monitor-step-history::-webkit-scrollbar {
+    width: 6px;
+}
+
+.monitor-step-history::-webkit-scrollbar-track {
+    background: #1a1a1a;
+}
+
+.monitor-step-history::-webkit-scrollbar-thumb {
+    background: #333;
+    border-radius: 3px;
+}
+
+.monitor-step-history::-webkit-scrollbar-thumb:hover {
+    background: #444;
+}
+
+/* ===== COMPLETED STEP ===== */
+.monitor-step {
+    margin-bottom: 12px;
+}
+
+.monitor-step.completed {
+    opacity: 0.8;
+}
+
+.monitor-step-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.monitor-step-icon {
+    font-size: 12px;
+    flex-shrink: 0;
+}
+
+.monitor-step-icon.completed {
+    color: #00ff88;
+}
+
+.monitor-step-icon.active {
+    color: #ff9500;
+    animation: pulse-icon 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-icon {
+
+    0%,
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 0.7;
+        transform: scale(0.95);
+    }
+}
+
+.monitor-step-name {
+    font-size: 12px;
+    font-weight: 500;
+    color: #e5e7eb;
+    flex: 1;
+}
+
+.monitor-step-duration {
+    font-size: 10px;
+    color: #6b7280;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+/* ===== SUB-STEPS ===== */
+.monitor-substeps {
+    padding-left: 20px;
+    margin-top: 4px;
+}
+
+.monitor-substep {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 0;
+    font-size: 11px;
+}
+
+.monitor-substep-icon {
+    font-size: 10px;
+    width: 12px;
+    text-align: center;
+}
+
+.monitor-substep-icon.pending {
+    color: #4b5563;
+}
+
+.monitor-substep-icon.active {
+    color: #ff9500;
+}
+
+.monitor-substep-icon.complete {
+    color: #00ff88;
+}
+
+.monitor-substep-name {
+    color: #9ca3af;
+}
+
+.monitor-substep-name.active {
+    color: #ff9500;
+}
+
+/* ===== CURRENT STEP (HIGHLIGHTED) ===== */
+.monitor-step.current {
+    background: #1a1a1a;
+    border: 1px solid #2a2a2a;
+    border-left: 3px solid #ff9500;
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 0;
+}
+
+.monitor-step.current .monitor-step-name {
+    color: #ffffff;
+    font-weight: 600;
+}
+
+.monitor-elapsed {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #2a2a2a;
+}
+
+.monitor-elapsed-label {
+    font-size: 10px;
+    color: #6b7280;
+}
+
+.monitor-elapsed-timer {
+    font-size: 11px;
+    color: #ff9500;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+}
+
+/* ===== IDLE STATE ===== */
+.monitor-idle-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    background: #0f0f0f;
+}
+
+.monitor-idle-icon {
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    border: 3px solid #00ff88;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 16px;
+}
+
+.monitor-idle-icon svg {
+    color: #00ff88;
+}
+
+.monitor-idle-text {
+    color: #9ca3af;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+/* ===== COMPLETE STATE ===== */
+.monitor-complete-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 20px;
+    background: #0f0f0f;
+    border-bottom: 1px solid #2a2a2a;
+}
+
+.monitor-complete-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    border: 3px solid #00ff88;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 12px;
+}
+
+.monitor-complete-title {
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.monitor-complete-stats {
+    color: #9ca3af;
+    font-size: 11px;
+}
+
+/* ===== WARNINGS SECTION (COLLAPSIBLE) ===== */
+.monitor-warnings {
+    background: #0a0a0a;
+    border-top: 1px solid #2a2a2a;
+    flex-shrink: 0;
+}
+
+.monitor-warnings-toggle {
+    display: none;
+}
+
+.monitor-warnings-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 16px;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.2s;
+}
+
+.monitor-warnings-header:hover {
+    background: #1a1a1a;
+}
+
+.monitor-warnings-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: #6b7280;
+}
+
+.monitor-warnings-count {
+    color: #fbbf24;
+    font-weight: 600;
+}
+
+.monitor-warnings-count.zero {
+    color: #6b7280;
+}
+
+.monitor-warnings-arrow {
+    color: #6b7280;
+    font-size: 10px;
+    transition: transform 0.2s;
+}
+
+.monitor-warnings-content {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+}
+
+.monitor-warnings-toggle:checked~.monitor-warnings-content {
+    max-height: 350px;
+    overflow-y: auto;
+}
+
+.monitor-warnings-toggle:checked~.monitor-warnings-header .monitor-warnings-arrow {
+    transform: rotate(180deg);
+}
+
+.monitor-warnings-list {
+    padding: 0 16px 12px 16px;
+}
+
+.monitor-warning-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 6px 0;
+    font-size: 11px;
+    border-bottom: 1px solid #1a1a1a;
+}
+
+.monitor-warning-item:last-child {
+    border-bottom: none;
+}
+
+.monitor-warning-icon {
+    flex-shrink: 0;
+}
+
+.monitor-warning-icon.warning {
+    color: #fbbf24;
+}
+
+.monitor-warning-icon.error {
+    color: #ef4444;
+}
+
+.monitor-warning-text {
+    color: #9ca3af;
+    line-height: 1.4;
+}
+
+/* ===== HISTORY SECTION (COMPLETE STATE) ===== */
+.monitor-history {
+    padding: 12px 16px;
+    background: #0f0f0f;
+}
+
+.monitor-history-title {
+    font-size: 9px;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+}

@@ -1,0 +1,347 @@
+﻿--- Debugging PDF: /app/DataBase/Papers/10.1007_s11222-022-10084-4.pdf ---
+Creating parser...
+Consider using the pymupdf_layout package for a greatly improved page layout analysis.
+Parsing file...
+Γ£à Parse Successful
+Title: Unknown Title
+Total Text Length: 130768 chars
+Sections Found: ['abstract', 'introduction', 'methods', 'results', 'discussion', 'conclusion']
+
+--- Start of Text ---
+Statistics and Computing (2022) 32:23 https://doi.org/10.1007/s11222-022-10084-4 On the identi∩¼üability of Bayesian factor analytic models Panagiotis Papastamoulis1 ┬╖ Ioannis Ntzoufras1 Received: 16 October 2020 / Accepted: 26 January 2022 / Published online: 27 February 2022 ┬⌐ The Author(s) 2022 Abstract A well known identi∩¼üability issue in factor analytic models is the invariance with respect to orthogonal transformations. This problem burdens the inference under a Bayesian setup, where Markov 
+--- End of Preview ---
+
+Creating chunker...
+
+Γ£à Chunking Complete
+Total Chunks: 66
+
+[Chunk 0] ID: 3047044bcffb3ad46498c2723062c3ec
+Section: summary
+Length: 1076 chars / 208 tokens
+Content Preview: Abstract: A well known identi∩¼üability issue in factor analytic models is the invariance with respect...
+
+[Chunk 1] ID: 5bc80bb1c634779c2708b1245b19fc51
+Section: abstract
+Length: 1066 chars / 206 tokens
+Content Preview: A well known identi∩¼üability issue in factor analytic models is the invariance with respect to orthog...
+
+[Chunk 2] ID: 7d7b6589867fbcf712c234a7321dd89b
+Section: introduction
+Length: 2696 chars / 800 tokens
+Content Preview: Factor Analysis (FA) is used to explain relationships among a set of observable responses using late...
+
+[Chunk 3] ID: b235992156d96b37fd7bfb411eedb2c7
+Section: introduction
+Length: 1607 chars / 462 tokens
+Content Preview: . . , n. Furthermore, ╬╡i consists of inde- pendent random variables ╬╡i1, . . . , ╬╡ip, that is,  = d...
+
+[Chunk 4] ID: 734c20d3e213ede50c4458e052b09ffa
+Section: methods
+Length: 3097 chars / 780 tokens
+Content Preview: are used to generate samples from the posterior distribution. We introduce a post-processing scheme ...
+
+[Chunk 5] ID: 2d7d46679f596952eeb6f0a91ec6efac
+Section: methods
+Length: 2335 chars / 695 tokens
+Content Preview: lies on a lower dimensional space, that is, q < p and we will consider the special case where it con...
+
+[Chunk 6] ID: dac495c7290fae658e28d267e9257ebd
+Section: results
+Length: 2897 chars / 784 tokens
+Content Preview: that ensure identi- ∩¼üability of  (the uniqueness problem) and will be explicitly followed in our im...
+
+[Chunk 7] ID: f532d7eb49f92ade4d30d89f09b9a2e6
+Section: results
+Length: 2694 chars / 796 tokens
+Content Preview: prior parameters of Fr├╝hwirth-Schnatter and Lopes (2018). Given identi∩¼üability of , a second source...
+
+[Chunk 8] ID: 2e6315914808410fad610ae86f402752
+Section: discussion
+Length: 3556 chars / 771 tokens
+Content Preview: The problem of posterior identi∩¼ücation of Bayesian Factor Analytic models has been addressed using a...
+
+[Chunk 9] ID: 8e90e75d4330aed3d5f07cc37467dcb1
+Section: discussion
+Length: 2150 chars / 467 tokens
+Content Preview: an example). The ∩¼ünal varimax rotation in the method of A├ƒmann et al. (2016) is essential when looki...
+
+[Chunk 10] ID: 4efb4ec041872a563955aad11b23a9af
+Section: conclusion
+Length: 3102 chars / 792 tokens
+Content Preview: . The number of fac- tors (q) is considered ∩¼üxed, nevertheless a by-product of our implementation is...
+
+[Chunk 11] ID: 7ad00f5e3f4a89aadb615376631e2573
+Section: conclusion
+Length: 2319 chars / 626 tokens
+Content Preview: number of parameters in the covariance matrix is reduced by 1 2 p(p + 1) ΓêÆ  p + pq ΓêÆ1 2q(q ΓêÆ1)  = ...
+
+[Chunk 12] ID: 454165b62331692b93a6e58ef466ea1a
+Section: uncategorized
+Length: 1975 chars / 465 tokens
+Content Preview: istribution,theMCMC sample will be consecutively switching among the multi- ple modes of the posteri...
+
+[Chunk 13] ID: 3741ab300fe98c25d64391e6a2edbf0b
+Section: uncategorized
+Length: 3477 chars / 794 tokens
+Content Preview: he ∩¼ürst q response vari- ables is crucial (Carvalho et al. 2008). In our approach we will not consid...
+
+[Chunk 14] ID: da86456fd1b5c93f343ee407d0d15047
+Section: uncategorized
+Length: 1995 chars / 778 tokens
+Content Preview: the similarities and differences with respect to the proposed approach. 3 Method 3.1 Notation and de...
+
+[Chunk 15] ID: 5cc5434f7cff16d88a19eb4956d925ed
+Section: uncategorized
+Length: 2579 chars / 787 tokens
+Content Preview: ∩┐╜∩┐╜. 123 Statistics and Computing (2022) 32 :23 Page 5 of 29 23 It is evident that applying a signed ...
+
+[Chunk 16] ID: eb444ba19cae8d33c9aeb28c1ee771ab
+Section: uncategorized
+Length: 2115 chars / 766 tokens
+Content Preview: ) r j  , t = 1, . . . , T the rotated MCMC output, after solving the varimax problem per MCMC itera...
+
+[Chunk 17] ID: 549a44ba123a7e3997a334ce8db00bda
+Section: uncategorized
+Length: 1989 chars / 715 tokens
+Content Preview: ,╬╜ := p  r=1 q  j=1  s j╬╗(t) r╬╜ j ΓêÆ╬╗Γïå r j 2 . (12) 123 23 Page 6 of 29 Statistics and Computing...
+
+[Chunk 18] ID: a4610dddd7c677b1e443847ad982e0ba
+Section: uncategorized
+Length: 2556 chars / 794 tokens
+Content Preview: (11). Clearly, the reference loading matrix Γïå= (╬╗Γïå r j) is not known, thus it is approximated by a ...
+
+[Chunk 19] ID: ca85a73b87a64a6b46540fb4c80c8422
+Section: uncategorized
+Length: 2889 chars / 789 tokens
+Content Preview: 2 factors. Step 2 can also serve as a stand alone algorithm, that is, without the varimax rotation s...
+
+[Chunk 20] ID: dc1b4591d5c8b5ff0bdc5c168bf22acb
+Section: uncategorized
+Length: 3123 chars / 763 tokens
+Content Preview: solves the problem without the integer restrictions. In case of non-integer solutions, the model is ...
+
+[Chunk 21] ID: 5e2736e27bc7a9e80bd3caab0c5aaf05
+Section: uncategorized
+Length: 3095 chars / 773 tokens
+Content Preview: , it is expected to be trapped at inferior solutions in some cases. The second version of SA (Scheme...
+
+[Chunk 22] ID: d797fc07efd9838b18f4e2880caa1f96
+Section: uncategorized
+Length: 2328 chars / 778 tokens
+Content Preview: ive function in Eq. (11) is a sum of T pq terms. Dividing the objective function by T pq corresponds...
+
+[Chunk 23] ID: 48b0107767b395d49a1bef88e8a33b70
+Section: uncategorized
+Length: 2534 chars / 780 tokens
+Content Preview: 16). End-Partial-SA (b) Compute LΓïå= L(t) sΓïå,╬╜Γïå. (c) Set  s(t,b), ╬╜(t,b) = (sΓïå, ╬╜Γïå) and L(t,b) = LΓïå...
+
+[Chunk 24] ID: 2fe2877692849182d54b56765c1ba875
+Section: uncategorized
+Length: 1077 chars / 315 tokens
+Content Preview: . Observe that for q > qtrue there are q ΓêÆqtrue columns of ╦Ü with all intervals including zero. Fo...
+
+[Chunk 25] ID: 44e0e181c252ee23d420b710bfdf90cd
+Section: uncategorized
+Length: 1168 chars / 720 tokens
+Content Preview: ) 32 :23 Table 1 Simulation study plan of Sect. 4.1 Factors n p F1 F2 F3 F4 Example 1 100 8 Y1 ΓêÆY4 Y...
+
+[Chunk 26] ID: 7d6953fdc72ce3b3902fbdda910ed50b
+Section: uncategorized
+Length: 2418 chars / 767 tokens
+Content Preview: 5 10 15 20 ΓùÅΓùÅΓùÅΓùÅΓùÅΓùÅ ΓùÅΓùÅΓùÅΓùÅΓùÅΓùÅ ΓùÅΓùÅΓùÅΓùÅΓùÅΓùÅ ΓùÅΓùÅΓùÅΓùÅ ΓùÅΓùÅ j = 2 5 10 15 20 ΓùÅΓùÅΓùÅ ΓùÅΓùÅΓùÅ ΓùÅΓùÅΓùÅΓùÅΓùÅΓùÅ ΓùÅ ΓùÅΓùÅΓùÅΓùÅΓùÅΓùÅΓùÅΓùÅ ΓùÅΓùÅΓùÅ j = 3 5 10 15...
+
+[Chunk 27] ID: 97a24eed7b282201a01179bcfafdc1be
+Section: uncategorized
+Length: 987 chars / 301 tokens
+Content Preview: models, we have simulated syn- thetic datasets from (1) with 18 Γëñp Γëñ24. The true number of factors w...
+
+[Chunk 28] ID: 066ecaa82994758609bd0140b23fb1b9
+Section: uncategorized
+Length: 1429 chars / 770 tokens
+Content Preview: q0 denote the number of redundant columns of ╦Ü for a FA model with q factors, that is, the number o...
+
+[Chunk 29] ID: 1cbc9e6b7b732ae6edba45aa14291e19
+Section: uncategorized
+Length: 1225 chars / 369 tokens
+Content Preview: .0 ΓêÆ0.5 0.0 0.5 1.0 ╬╗6.2 0 2 4 6 ΓêÆ1.0 ΓêÆ0.5 0.0 0.5 1.0 ╬╗7.2 0 2 4 6 ΓêÆ1.0 ΓêÆ0.5 0.0 0.5 1.0 ╬╗8.2 Fig. ...
+
+[Chunk 30] ID: fcf61f154e4f777cdc99f8a922d834be
+Section: uncategorized
+Length: 1816 chars / 765 tokens
+Content Preview: the R package BayesFM (Piatek 2019). We have also considered estimation of the number of factors acc...
+
+[Chunk 31] ID: 48a72c72b4057166914e32ea654cc5cb
+Section: uncategorized
+Length: 2990 chars / 790 tokens
+Content Preview: the prior variance variance of the factor loadings: LΓêÆ1 0 = 100 (this choice corresponds to a vague ...
+
+[Chunk 32] ID: 21d2f7922004fd3561666c5213633267
+Section: uncategorized
+Length: 3162 chars / 745 tokens
+Content Preview: marginal likelihood estima- tion according to bridge sampling when applied to the raw output of MCMC...
+
+[Chunk 33] ID: c993fb953272424bd8103898aa94c921
+Section: uncategorized
+Length: 2249 chars / 785 tokens
+Content Preview: visual perception, cubes and lozenges) denote ΓÇ£visual perceptionΓÇ¥, variables 4ΓÇô6 (paragraph comprehe...
+
+[Chunk 34] ID: a22fe0d0a133c52696200fbc4613694e
+Section: uncategorized
+Length: 2642 chars / 734 tokens
+Content Preview: , the ΓÇ£visual perceptionΓÇ¥ group. Notice however that variable 9 is also loading on the 3rd factor. T...
+
+[Chunk 35] ID: 2db59cc1578f036bd0d56e7358539dda
+Section: uncategorized
+Length: 1617 chars / 419 tokens
+Content Preview: factor loadings per cluster are shown in Table 3. The correlation matrix per cluster is shown in Fig...
+
+[Chunk 36] ID: a60704c3b81fc06650905c0174aaef29
+Section: uncategorized
+Length: 2060 chars / 1243 tokens
+Content Preview: = 5 components under all constrained pgmm parameterisations (McNicholas and Murphy 2008) of the marg...
+
+[Chunk 37] ID: ad65d2d5b51ad8eadfed0f9456edf867
+Section: uncategorized
+Length: 1943 chars / 794 tokens
+Content Preview: .0 ΓêÆ0.0 0.0 0.0 ΓêÆ0.0 ΓêÆ1.0 ΓêÆ1.0 ΓêÆ1.0 ΓêÆ1.0 ΓêÆ1.0 Cluster 2 Factor 1 0.0 ΓêÆ0.0 ΓêÆ0.0 ΓêÆ0.0 ΓêÆ0.0 0.5 0.5 0.5...
+
+[Chunk 38] ID: 070442d13759f2c8943ed02ae1dc8c58
+Section: uncategorized
+Length: 1804 chars / 418 tokens
+Content Preview: is and Iliopoulos 2010) in order to deal with the label switching between mixture components. Next, ...
+
+[Chunk 39] ID: 709015e36e9c1e4d6bfd168efd6a4894
+Section: uncategorized
+Length: 2896 chars / 777 tokens
+Content Preview: ate if changes were made. The images or other third party material in this article are included in t...
+
+[Chunk 40] ID: 2dae3eb1088551702ef6711144ccf6b4
+Section: uncategorized
+Length: 1322 chars / 495 tokens
+Content Preview: whole MCMC output, as shown in Fig. 10b. The rotated values after this step are displayed in Fig. 10...
+
+[Chunk 41] ID: 01c6dce00587717dbc90cfdf47f8ca62
+Section: uncategorized
+Length: 1384 chars / 651 tokens
+Content Preview: ∩¼ürst transformation means that, for MCMC draw t,  ╬╗(t) r1 ,╬╗(t) r2  is transformed to  ╦Ö╬╗(t) r1...
+
+[Chunk 42] ID: fa458eeb6d8e14ed8da2d6ebc050af9e
+Section: uncategorized
+Length: 1770 chars / 766 tokens
+Content Preview: nal output returned by our method. Note that the processed output is switched to a sim- ple structur...
+
+[Chunk 43] ID: d6fb766b066842abe90693d71770c987
+Section: uncategorized
+Length: 1949 chars / 799 tokens
+Content Preview: 0 1 1 0 1 0 0 ΓêÆ1 = 0 ΓêÆ1 1 0 , implying that  is ∩¼ünally trans- formed to ╦Ü =  Q = SP = ΓÄ¢ ΓÄ¥ ...
+
+[Chunk 44] ID: 79e4d92f19e9d589f64497b513956861
+Section: uncategorized
+Length: 3075 chars / 795 tokens
+Content Preview: objective function is 10 t=1 L(t) s(t),╬╜(t) Γëê0.55. Sub- sequent iterations do not improve further t...
+
+[Chunk 45] ID: c07d69dee5c8377b2cbb251c5bdeb068
+Section: uncategorized
+Length: 1995 chars / 532 tokens
+Content Preview: Γïå c denote the Γïåmatrix (that is, the matrix which contains the estimates of posterior mean of fact...
+
+[Chunk 46] ID: 5eef08d857f8734a18e5e0bf59eccdcb
+Section: uncategorized
+Length: 20892 chars / 13416 tokens
+Content Preview: interval of the potential scale reduction factor (Gelman et al. 1992; Brooks and Gelman 1998) are eq...
+
+[Chunk 47] ID: a2a1ea7b92ce48116d3250aa3876c3f8
+Section: uncategorized
+Length: 1291 chars / 383 tokens
+Content Preview: ΓùÅ ΓùÅ ΓùÅ ΓùÅ ΓùÅΓùÅΓùÅ ΓùÅΓùÅΓùÅ ΓùÅ ΓùÅ ΓùÅ ΓùÅΓùÅΓùÅ ΓùÅΓùÅ ΓùÅ ΓùÅΓùÅ ΓùÅΓùÅΓùÅΓùÅΓùÅΓùÅ ΓùÅ ΓùÅ ΓùÅΓùÅΓùÅΓùÅΓùÅ ΓùÅΓùÅΓùÅΓùÅ ΓùÅ ΓùÅΓùÅΓùÅΓùÅ ΓùÅΓùÅ ΓùÅΓùÅΓùÅΓùÅΓùÅΓùÅΓùÅ ΓùÅ ΓùÅΓùÅ ΓùÅΓùÅ ΓùÅΓùÅ ΓùÅΓùÅ ΓùÅΓùÅΓùÅΓùÅ ΓùÅ ΓùÅ ΓùÅΓùÅ ...
+
+[Chunk 48] ID: abbc822a892670c7d633d9654673ab24
+Section: uncategorized
+Length: 1964 chars / 790 tokens
+Content Preview: scheme we used B = 20 simulated annealing steps/repetitions for q = 5, 10 factors and B = 200 for q ...
+
+[Chunk 49] ID: 79a06cb0f49a7cbaa3cbe2ab144b6efd
+Section: uncategorized
+Length: 3163 chars / 774 tokens
+Content Preview: ΓùÅ ΓùÅ ΓùÅ ΓùÅ ΓùÅ 5e+04 1e+05 3e+05 5e+05 0 500 1000 1500 2000 time (minutes) objective function q = 50, p =...
+
+[Chunk 50] ID: b107396e956c59d77e043cba1f641cbf
+Section: uncategorized
+Length: 950 chars / 199 tokens
+Content Preview: 4 in the main manuscript. Clearly, the estimated marginal posterior distribution of reordered fac- t...
+
+[Chunk 51] ID: 66760f1b6b85f80b8c452a59818bb499
+Section: uncategorized
+Length: 6047 chars / 4089 tokens
+Content Preview: of Sect. 2) a crucial characteristic in the model of Kaufmann and Schu- macher (2017) is the fact th...
+
+[Chunk 52] ID: 7a7b9e42c5304c35b8ae6d740cfc0118
+Section: uncategorized
+Length: 2837 chars / 776 tokens
+Content Preview: ΓùÅΓùÅΓùÅ ΓùÅΓùÅΓùÅΓùÅΓùÅΓùÅ ΓùÅΓùÅ ΓùÅ ΓùÅΓùÅ ΓùÅ ΓùÅΓùÅ ΓùÅΓùÅΓùÅ ΓùÅΓùÅ ΓùÅ ΓùÅ ΓùÅ ΓùÅ ΓùÅΓùÅ ΓùÅ ΓùÅΓùÅ ΓùÅΓùÅ ΓùÅΓùÅ ΓùÅΓùÅΓùÅ ΓùÅ ΓùÅΓùÅ ΓùÅΓùÅΓùÅΓùÅΓùÅ ΓùÅ ΓùÅ ΓùÅ ΓùÅ ΓùÅΓùÅΓùÅ ΓùÅ ΓùÅ ΓùÅ ΓùÅ ΓùÅ ΓùÅ ΓùÅΓùÅΓùÅΓùÅ ΓùÅ ΓùÅ...
+
+[Chunk 53] ID: fb9722e62b65bfa9faf7851a550b2687
+Section: uncategorized
+Length: 1332 chars / 742 tokens
+Content Preview: the factor loadings matrix. G Mixtures of factor analyzers: the wave dataset We used the Wave datase...
+
+[Chunk 54] ID: 524f463c4cadd577635c6e1bca0424b1
+Section: uncategorized
+Length: 1426 chars / 935 tokens
+Content Preview: 0.5 1.0 1.5 0 1 2 3 4 ╬╗71 ΓêÆ1.0 ΓêÆ0.5 0.0 0.5 1.0 0 1 2 3 4 5 6 ╬╗72 ΓêÆ1.0 ΓêÆ0.5 0.0 0.5 1.0 0 1 2 3 4 ╬╗8...
+
+[Chunk 55] ID: 5f8fa81c73c72e531a3134a44a654ff1
+Section: uncategorized
+Length: 2659 chars / 789 tokens
+Content Preview: 13 14 15 16 17 18 19 20 21 cluster ΓÇÿ2' ΓêÆ1 ΓêÆ0.8 ΓêÆ0.6 ΓêÆ0.4 ΓêÆ0.2 0 0.2 0.4 0.6 0.8 1 1 2 3 4 5 6 7 8 9 ...
+
+[Chunk 56] ID: d5cbee021053fe4ba88c24eac4b1e5b9
+Section: uncategorized
+Length: 2648 chars / 627 tokens
+Content Preview: sir/siΓêÆ1,r ΓêÆ1 where sir denotes the original measurement at time-point i = 1, . . . , 1000 and curre...
+
+[Chunk 57] ID: 8e634c693a61d678dccd5cf78cf56e07
+Section: uncategorized
+Length: 1473 chars / 581 tokens
+Content Preview: all currencies but CAD and moreover all of them (except CAD) have the same (negative) sign. This hol...
+
+[Chunk 58] ID: 5e95e1c4bc3610b46f3922871aff4d61
+Section: uncategorized
+Length: 2239 chars / 800 tokens
+Content Preview: ) ESP ΓêÆ0.85(0.03)Γêù ΓêÆ0.01(0.05) ΓêÆ0.80(0.10)Γêù 0.08(0.08) 0.26(0.22) An asterisk indicates cases where ...
+
+[Chunk 59] ID: 538c919f04c27f4faa3aadea8900eeae
+Section: uncategorized
+Length: 2370 chars / 760 tokens
+Content Preview: variable models using the Gibbs sampler and the MetropolisΓÇô Hastings algorithm. Psychometrika 63(3),...
+
+[Chunk 60] ID: 784bbaeeaabbb31025beefc7fb70862f
+Section: uncategorized
+Length: 2286 chars / 765 tokens
+Content Preview: (2017). https://doi.org/10.18637/jss.v076.i01 Carvalho, C.M., Chang, J., Lucas, J.E., Nevins, J.R., ...
+
+[Chunk 61] ID: 146cab41a10600107f4bee53fd64abf4
+Section: uncategorized
+Length: 2479 chars / 799 tokens
+Content Preview: (1990) Gelman, A., Rubin, D.B., et al.: Inference from iterative simulation using multiple sequences...
+
+[Chunk 62] ID: f0c3002641ca534b5aab41e557f8b82f
+Section: uncategorized
+Length: 2303 chars / 782 tokens
+Content Preview: and Practical Issues, vol. 14. Sage (1978) Kirkpatrick, S., Gelatt, C.D., Vecchi, M.P.: Optimization...
+
+[Chunk 63] ID: 6a43a1f8e7a55bd8a26c5969c8669f77
+Section: uncategorized
+Length: 2452 chars / 765 tokens
+Content Preview: sumoto M, Nishimura T (2019) MCMCpack: Markov Chain Monte Carlo (MCMC) Package, R Package Version 1....
+
+[Chunk 64] ID: b85bb2bd530926bf0255fd4f766a1299
+Section: uncategorized
+Length: 2510 chars / 789 tokens
+Content Preview: Statistics and Computing (2022) 32 :23 Page 29 of 29 23 Papastamoulis, P.: Clustering multivariate d...
+
+[Chunk 65] ID: 92369743e31614d9ee0dfe354f98f1d3
+Section: uncategorized
+Length: 1057 chars / 333 tokens
+Content Preview: 237ΓÇô263 (2001) Srivastava, S., Engelhardt, B.E., Dunson, D.B.: Expandable factor anal- ysis. Biometr...

@@ -1,0 +1,254 @@
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "50m"
+    max-file: "3"
+
+services:
+  redis:
+    image: redis:7.4-alpine
+    container_name: sme_redis
+    logging: *default-logging
+    # No ports exposed — internal only
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  qdrant:
+    image: qdrant/qdrant:v1.12.6
+    container_name: sme_qdrant
+    logging: *default-logging
+    # No ports exposed — internal only
+    volumes:
+      - qdrant-data:/qdrant/storage
+    environment:
+      - QDRANT__STORAGE__ON_DISK_PAYLOAD=true
+      - QDRANT__SERVICE__GRPC_PORT=6334
+      - QDRANT__STORAGE__WAL__WAL_CAPACITY_MB=2048 # Cap WAL at 2GB (prevents 50GB+ inflation)
+      - QDRANT__STORAGE__WAL__WAL_SEGMENTS_AHEAD=2 # Max 2 WAL segments buffered
+    deploy:
+      resources:
+        limits:
+          memory: 48G # Hard ceiling — prevents swapping on 64GB host
+        reservations:
+          memory: 8G # Guaranteed minimum for HNSW graph + SQ index
+    stop_grace_period: 30s # Allow time for WAL flush on shutdown
+    healthcheck:
+      test: [ "CMD-SHELL", "bash -c '(echo > /dev/tcp/localhost/6333) >/dev/null 2>&1'" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:0.18.0
+    container_name: sme_ollama
+    hostname: sme_ollama_docker # Stable identity for Ollama Cloud Auth
+    logging: *default-logging
+    # No ports exposed — internal only
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_GPU_OVERHEAD=0
+      - OLLAMA_KEEP_ALIVE=10m
+      - OLLAMA_NUM_PARALLEL=128
+      - OLLAMA_MAX_QUEUE=128
+      - OLLAMA_CONTEXT_LENGTH=4096 # Must exceed chunker's max (1600 cl100k tokens ≈ 2500+ Qwen3 tokens)
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
+    healthcheck:
+      test: [ "CMD-SHELL", "bash -c '(echo > /dev/tcp/localhost/11434) >/dev/null 2>&1'" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  app:
+    build: .
+    container_name: sme_app
+    logging: *default-logging
+    ports:
+      - "8502:8501"
+    volumes:
+      # NO source code bind mount — code is baked into image
+      - sme_db_data:/app/data # Overlay Named Volume for sme.db
+      - sme_hf_model_cache:/root/.cache/huggingface # Mount Reranker HF Cache
+      - ./config:/app/config:ro  # Read-only config mount
+    env_file:
+      - .env
+    environment:
+      - PYTHONUNBUFFERED=1
+      - NVIDIA_VISIBLE_DEVICES=all # On-demand reranker access (no reservation)
+      - NVIDIA_DRIVER_CAPABILITIES=all
+    # GPU NOTE: Embedding routed to sme_ollama via remote_url.
+    # Reranker (BAAI/bge-reranker-v2-m3, 1-2GB) loads on-demand.
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
+    depends_on:
+      - qdrant
+      - redis
+      - ollama
+      - auth
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -f http://localhost:8501/_stcore/health || exit 1" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+
+  dashboard-backend:
+    build: ./dashboard/backend
+    container_name: sme_dashboard_api
+    logging: *default-logging
+    # No host ports — accessed only by dashboard-ui via Docker network
+    volumes:
+      - ./config:/config:ro  # Read-only config mount
+      - sme_db_data:/data:rw # Overlay Named Volume for sme.db
+    env_file:
+      - .env
+    environment:
+      # JWT_SECRET loaded from .env file
+      - QDRANT_URL=http://sme_qdrant:6333
+      - CONFIG_PATH=/config/acquisition_config.yaml
+      - DB_PATH=/data/sme.db
+      - CORS_ORIGINS=http://localhost:3030,http://localhost:3000,http://localhost:5173,https://papyrus-ai.net
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2g
+    depends_on:
+      - qdrant
+      - app
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -f http://localhost:8000/health || exit 1" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
+  dashboard-ui:
+    build: ./dashboard/frontend
+    container_name: sme_dashboard_ui
+    logging: *default-logging
+    ports:
+      - "3030:3000"
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 512m
+    depends_on:
+      - dashboard-backend
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -f http://localhost:3000/ || exit 1" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
+  gpu-exporter:
+    build: ./dashboard/gpu_exporter
+    container_name: sme_gpu_exporter
+    logging: *default-logging
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu, utility ]
+    healthcheck:
+      test: [ "CMD-SHELL", "nvidia-smi > /dev/null 2>&1 || exit 1" ]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
+  # ─── Multi-User Auth Service ───
+  auth:
+    build: ./services/auth
+    container_name: sme_auth
+    logging: *default-logging
+    volumes:
+      - sme_db_data:/app/data  # Shared data volume for auth.db
+    environment:
+      - DATABASE_URL=sqlite:////app/data/auth.db
+      - JWT_SECRET=${JWT_SECRET}
+      - MASTER_ENCRYPTION_KEY=${MASTER_ENCRYPTION_KEY}
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # ─── Reverse Proxy (Internal Routing) ───
+  caddy:
+    image: caddy:2.9-alpine
+    container_name: sme_caddy
+    logging: *default-logging
+    ports:
+      - "8080:80"  # Local access port
+    volumes:
+      - ./services/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - auth
+      - app
+      - dashboard-ui
+      - dashboard-backend
+    healthcheck:
+      test: [ "CMD-SHELL", "wget -q --spider http://localhost:80/ || exit 1" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+
+  # ─── Cloudflare Tunnel (Public Access via papyrus-ai.net) ───
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: sme_tunnel
+    logging: *default-logging
+    # Named tunnel mode: requires credentials file from 'cloudflared tunnel create'
+    # Quick tunnel mode: command: tunnel --no-autoupdate --url http://caddy:80
+    command: tunnel --config /etc/cloudflared/config.yml --no-autoupdate run
+    volumes:
+      - ./config/cloudflared-credentials.json:/etc/cloudflared/credentials.json:ro
+      - ./config/cloudflared-config.yml:/etc/cloudflared/config.yml:ro
+    depends_on:
+      - caddy
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+  ollama_data:
+  qdrant-data:
+  sme_db_data:
+  sme_hf_model_cache:
+  caddy_data:
+  caddy_config:

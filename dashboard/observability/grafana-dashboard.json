@@ -1,0 +1,187 @@
+{
+    "annotations": {
+        "list": []
+    },
+    "editable": true,
+    "fiscalYearStartMonth": 0,
+    "graphTooltip": 0,
+    "links": [],
+    "panels": [
+        {
+            "title": "Pipeline Status",
+            "type": "stat",
+            "gridPos": {
+                "h": 4,
+                "w": 6,
+                "x": 0,
+                "y": 0
+            },
+            "targets": [
+                {
+                    "expr": "dashboard_pipeline_running",
+                    "legendFormat": "Running"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "mappings": [
+                        {
+                            "type": "value",
+                            "options": {
+                                "0": {
+                                    "text": "STOPPED",
+                                    "color": "red"
+                                },
+                                "1": {
+                                    "text": "RUNNING",
+                                    "color": "green"
+                                }
+                            }
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "title": "WebSocket Clients",
+            "type": "stat",
+            "gridPos": {
+                "h": 4,
+                "w": 6,
+                "x": 6,
+                "y": 0
+            },
+            "targets": [
+                {
+                    "expr": "dashboard_websocket_clients",
+                    "legendFormat": "Clients"
+                }
+            ]
+        },
+        {
+            "title": "Qdrant Vectors",
+            "type": "stat",
+            "gridPos": {
+                "h": 4,
+                "w": 6,
+                "x": 12,
+                "y": 0
+            },
+            "targets": [
+                {
+                    "expr": "dashboard_qdrant_vectors_total",
+                    "legendFormat": "Vectors"
+                }
+            ]
+        },
+        {
+            "title": "GPU Utilization",
+            "type": "gauge",
+            "gridPos": {
+                "h": 4,
+                "w": 6,
+                "x": 18,
+                "y": 0
+            },
+            "targets": [
+                {
+                    "expr": "dashboard_gpu_utilization_percent",
+                    "legendFormat": "GPU %"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "max": 100,
+                    "thresholds": {
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": 0
+                            },
+                            {
+                                "color": "yellow",
+                                "value": 60
+                            },
+                            {
+                                "color": "red",
+                                "value": 85
+                            }
+                        ]
+                    }
+                }
+            }
+        },
+        {
+            "title": "Request Rate",
+            "type": "timeseries",
+            "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 0,
+                "y": 4
+            },
+            "targets": [
+                {
+                    "expr": "rate(dashboard_http_requests_total[1m])",
+                    "legendFormat": "{{method}} {{endpoint}} {{status}}"
+                }
+            ]
+        },
+        {
+            "title": "Request Latency (p95)",
+            "type": "timeseries",
+            "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 12,
+                "y": 4
+            },
+            "targets": [
+                {
+                    "expr": "histogram_quantile(0.95, rate(dashboard_http_request_duration_seconds_bucket[5m]))",
+                    "legendFormat": "p95"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "s"
+                }
+            }
+        },
+        {
+            "title": "GPU VRAM Used (MB)",
+            "type": "timeseries",
+            "gridPos": {
+                "h": 8,
+                "w": 24,
+                "x": 0,
+                "y": 12
+            },
+            "targets": [
+                {
+                    "expr": "dashboard_gpu_vram_used_mb",
+                    "legendFormat": "VRAM Used"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "decmbytes"
+                }
+            }
+        }
+    ],
+    "schemaVersion": 39,
+    "tags": [
+        "sme",
+        "dashboard"
+    ],
+    "templating": {
+        "list": []
+    },
+    "time": {
+        "from": "now-1h",
+        "to": "now"
+    },
+    "title": "SME Pipeline Dashboard",
+    "uid": "sme-dashboard"
+}

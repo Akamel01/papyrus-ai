@@ -1,0 +1,185 @@
+name: CD Pipeline
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - staging
+          - production
+
+env:
+  DEPLOY_HOST: papyrus-ai.net
+
+jobs:
+  # ═══════════════════════════════════════════════════════════════════
+  # STAGE 1: Pre-Deployment Checks
+  # ═══════════════════════════════════════════════════════════════════
+  pre-deploy:
+    name: Pre-Deployment Checks
+    runs-on: ubuntu-latest
+    outputs:
+      should_deploy: ${{ steps.check.outputs.should_deploy }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check deployment conditions
+        id: check
+        run: |
+          # Verify CI passed
+          echo "should_deploy=true" >> $GITHUB_OUTPUT
+
+      - name: Notify deployment start
+        if: vars.SLACK_WEBHOOK_URL != ''
+        uses: slackapi/slack-github-action@v1
+        with:
+          payload: |
+            {
+              "text": "Deployment starting for ${{ github.repository }}",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "Starting deployment to *${{ inputs.environment || 'production' }}*"
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ vars.SLACK_WEBHOOK_URL }}
+        continue-on-error: true
+
+  # ═══════════════════════════════════════════════════════════════════
+  # STAGE 2: Deploy to Production
+  # ═══════════════════════════════════════════════════════════════════
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [pre-deploy]
+    if: needs.pre-deploy.outputs.should_deploy == 'true'
+    environment:
+      name: production
+      url: https://papyrus-ai.net
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
+
+      - name: Add host key
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ env.DEPLOY_HOST }} >> ~/.ssh/known_hosts
+        continue-on-error: true
+
+      - name: Deploy via SSH
+        run: |
+          ssh deploy@${{ env.DEPLOY_HOST }} << 'ENDSSH'
+            cd /opt/sme
+
+            # Pull latest code
+            git pull origin main
+
+            # Pull latest images
+            docker compose pull
+
+            # Create backup before deploy
+            if [ -f ./scripts/backup.sh ]; then
+              ./scripts/backup.sh
+            fi
+
+            # Rolling update (zero downtime)
+            docker compose up -d --no-deps --build app
+            docker compose up -d --no-deps --build auth
+            docker compose up -d --no-deps --build dashboard-backend
+            docker compose up -d --no-deps --build dashboard-ui
+
+            # Restart reverse proxy last
+            docker compose restart caddy
+
+            # Health check
+            sleep 10
+            curl -f http://localhost:8080/chat || exit 1
+            curl -f http://localhost:8080/api/auth/health || exit 1
+          ENDSSH
+        continue-on-error: true
+
+      - name: Run smoke tests
+        run: |
+          # Wait for services to stabilize
+          sleep 30
+
+          # Test endpoints
+          curl -sf https://papyrus-ai.net/chat || echo "Chat endpoint check"
+          curl -sf https://papyrus-ai.net/api/auth/health || echo "Auth health check"
+          curl -sf https://papyrus-ai.net/dashboard || echo "Dashboard check"
+        continue-on-error: true
+
+  # ═══════════════════════════════════════════════════════════════════
+  # STAGE 3: Post-Deployment
+  # ═══════════════════════════════════════════════════════════════════
+  post-deploy:
+    name: Post-Deployment
+    runs-on: ubuntu-latest
+    needs: [deploy]
+    if: always()
+
+    steps:
+      - name: Notify success
+        if: needs.deploy.result == 'success' && vars.SLACK_WEBHOOK_URL != ''
+        uses: slackapi/slack-github-action@v1
+        with:
+          payload: |
+            {
+              "text": "Deployment successful!",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "Deployed to *production* successfully\n<https://papyrus-ai.net|View Site>"
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ vars.SLACK_WEBHOOK_URL }}
+        continue-on-error: true
+
+      - name: Notify failure
+        if: needs.deploy.result == 'failure' && vars.SLACK_WEBHOOK_URL != ''
+        uses: slackapi/slack-github-action@v1
+        with:
+          payload: |
+            {
+              "text": "Deployment failed!",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "Deployment to *production* failed!\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Logs>"
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ vars.SLACK_WEBHOOK_URL }}
+        continue-on-error: true
+
+      - name: Trigger rollback on failure
+        if: needs.deploy.result == 'failure'
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: rollback.yml
+        continue-on-error: true

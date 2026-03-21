@@ -1,0 +1,703 @@
+/* SME Research Assistant - Theme Styles
+   Extracted from main.py for maintainability
+*/
+
+/* ===== TYPOGRAPHY & VISIBILITY ===== */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Merriweather:wght@300;400;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+html,
+body,
+[class*="css"] {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    color: #d1d5db !important;
+    /* Gray-300 */
+}
+
+/* ===== GOLDEN RATIO SYSTEM ===== */
+:root {
+    --phi: 1.618;
+
+    /* Typography Scale (Base 16px) */
+    --text-xs: 10px;
+    /* 16 / 1.618 */
+    --text-base: 16px;
+    --text-lg: 26px;
+    /* 16 * 1.618 */
+    --text-xl: 42px;
+    /* 16 * 1.618^2 */
+    --text-2xl: 68px;
+    /* 16 * 1.618^3 */
+
+    /* Fibonacci Spacing */
+    --space-xs: 10px;
+    --space-sm: 16px;
+    --space-md: 26px;
+    --space-lg: 42px;
+    --space-xl: 68px;
+}
+
+/* ===== BACKGROUND ===== */
+.stApp {
+    background-color: #0a0a0a !important;
+    /* Neutral-950 */
+}
+
+/* ===== SIDEBAR ===== */
+[data-testid="stSidebar"] {
+    background-color: #000000 !important;
+    border-right: 1px solid #171717 !important;
+    /* Neutral-900 */
+    width: 320px !important;
+    min-width: 320px !important;
+    max-width: 320px !important;
+}
+
+
+
+
+/* ===== HIDE STREAMLIT HEADER & TOOLBAR ===== */
+.stApp>header,
+[data-testid="stHeader"],
+[data-testid="stToolbar"],
+[data-testid="stDecoration"],
+.stDeployButton,
+header[data-testid="stHeader"] {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    max-height: 0 !important;
+    overflow: hidden !important;
+    background: transparent !important;
+}
+
+/* Force top spacing to be dark */
+.stApp {
+    background-color: #0a0a0a !important;
+}
+
+/* Remove any top margin/padding that might show light color */
+.stMain,
+[data-testid="stAppViewContainer"],
+[data-testid="stMainBlockContainer"] {
+    padding-top: 0 !important;
+    margin-top: 0 !important;
+}
+
+/* ===== LEGACY COLUMN SIZING REMOVED ===== */
+/* Layout is now controlled globally by .block-container margins in main.py */
+
+/* ===== HEADINGS ===== */
+h1 {
+    font-family: 'Merriweather', serif !important;
+    font-size: var(--text-2xl) !important;
+    /* Golden Ratio H1 */
+    font-weight: 700 !important;
+    color: #f3f4f6 !important;
+    /* Gray-100 */
+}
+
+h2,
+h3,
+h4 {
+    font-family: 'Inter', sans-serif !important;
+    font-weight: 600 !important;
+    color: #e5e7eb !important;
+    line-height: 1.3 !important;
+}
+
+h2 {
+    font-size: var(--text-xl) !important;
+}
+
+h3 {
+    font-size: var(--text-lg) !important;
+}
+
+h4 {
+    font-size: var(--text-base) !important;
+    font-weight: 700 !important;
+}
+
+/* ===== WIDGET LABELS ===== */
+label[data-testid="stWidgetLabel"] p {
+    font-size: 0.9rem !important;
+    font-weight: 500 !important;
+    color: #9ca3af !important;
+    /* Gray-400 */
+}
+
+/* ===== CHAT ELEMENTS ===== */
+.stChatMessage {
+    background-color: transparent !important;
+}
+
+.stChatMessage[data-testid="user-message"] {
+    background-color: #171717 !important;
+    /* Neutral-900 */
+    border: 1px solid #262626 !important;
+    /* Neutral-800 */
+    border-radius: 12px 12px 0 12px !important;
+    max-width: 80%;
+    margin-left: auto;
+}
+
+.stChatMessage[data-testid="assistant-message"] {
+    background-color: transparent !important;
+}
+
+/* ===== INPUT AREA ===== */
+.stChatInputContainer>div {
+    background-color: #171717 !important;
+    border: 1px solid #262626 !important;
+    border-radius: 8px !important;
+    /* rounded-lg */
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+}
+
+.stChatInputContainer>div:focus-within {
+    border-color: #f59e0b !important;
+    /* Amber-500 */
+    box-shadow: 0 0 0 1px #f59e0b !important;
+}
+
+/* ===== FORM INPUTS (Search Box Style) ===== */
+.stTextInput input {
+    background-color: rgba(23, 23, 23, 0.5) !important;
+    /* bg-neutral-900/50 */
+    color: #e5e7eb !important;
+    border: 1px solid #404040 !important;
+    /* border-neutral-700 */
+    border-radius: 8px !important;
+    /* rounded-lg */
+    padding: 0 48px !important;
+    /* Space for icons */
+    height: 3.5rem !important;
+    /* h-14 */
+    font-family: 'Inter', sans-serif !important;
+    font-size: 0.875rem !important;
+    /* text-sm */
+    font-weight: 500 !important;
+    backdrop-filter: blur(12px) !important;
+}
+
+.stTextInput input:focus {
+    border-color: rgba(245, 158, 11, 0.5) !important;
+    box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.5) !important;
+}
+
+.status-block {
+    background: rgba(23, 23, 23, 0.6);
+    /* Neutral-900/60 */
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-left: 2px solid #f59e0b;
+    /* Amber-500 */
+    border-radius: 6px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: all 0.3s ease;
+}
+
+.status-block.active {
+    background: rgba(245, 158, 11, 0.05);
+    /* Amber tint */
+    border-color: rgba(245, 158, 11, 0.3);
+    border-left-color: #f59e0b;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.status-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    color: #f59e0b;
+}
+
+.status-content {
+    flex: 1;
+}
+
+.status-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    color: #f59e0b;
+    font-weight: 500;
+    margin-bottom: 2px;
+}
+
+.status-subtitle {
+    font-size: 0.8rem;
+    color: #9ca3af;
+    /* Gray-400 */
+}
+
+/* ===== SLIDERS (Forgiving Hit Area) ===== */
+.stSlider [data-baseweb="slider"] {
+    padding-top: 10px !important;
+    padding-bottom: 10px !important;
+}
+
+.stSlider [role="slider"] {
+    width: 20px !important;
+    height: 20px !important;
+    background-color: #f59e0b !important;
+    border: 2px solid #000 !important;
+    box-shadow: 0 0 15px rgba(245, 158, 11, 0.3);
+}
+
+.stSlider [data-testid="stTickBar"]>div>div {
+    background-color: #f59e0b !important;
+}
+
+/* Fix Cyan Track Color in Select Sliders */
+div[data-baseweb="slider"]>div>div>div:first-child {
+    background-color: #f59e0b !important;
+}
+
+/* ===== FORM INPUTS (Search Box Style) ===== */
+.stTextInput input {
+    background-color: #171717 !important;
+    color: #e5e7eb !important;
+    border: 1px solid #262626 !important;
+    border-radius: 9999px !important;
+    padding: 12px 20px !important;
+    height: 3.5rem !important;
+    /* h-14 */
+    font-family: 'Inter', sans-serif !important;
+}
+
+.stTextInput input:focus {
+    border-color: #f59e0b !important;
+    box-shadow: 0 0 15px rgba(245, 158, 11, 0.15) !important;
+}
+
+/* ===== BUTTONS ===== */
+.stButton button {
+    background-color: #171717 !important;
+    color: #d1d5db !important;
+    border: 1px solid #262626 !important;
+    transition: all 0.2s;
+}
+
+.stButton button:hover {
+    border-color: #f59e0b !important;
+    color: #f59e0b !important;
+}
+
+/* ===== SIDEBAR OVERLAY ===== */
+.sidebar-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 21rem;
+    /* Approx sidebar width */
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.5);
+    /* Dimmed 50% */
+    backdrop-filter: grayscale(0.5);
+    z-index: 10000;
+    pointer-events: all;
+    /* Blocks clicks */
+}
+
+/* ===== GLASS CARD HOVER ===== */
+.glass-card {
+    background: rgba(23, 23, 23, 0.6);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.glass-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(245, 158, 11, 0.5);
+    box-shadow: 0 0 20px rgba(245, 158, 11, 0.2);
+}
+
+/* ===== ANIMATIONS ===== */
+@keyframes illuminate {
+
+    0%,
+    100% {
+        box-shadow: 0 0 4px #f59e0b;
+    }
+
+    50% {
+        box-shadow: 0 0 8px #f59e0b, 0 0 16px #fbbf24, 0 0 24px rgba(251, 191, 36, 0.3);
+    }
+}
+
+@keyframes text-glow {
+
+    0%,
+    100% {
+        text-shadow: 0 0 2px rgba(245, 158, 11, 0.3);
+        opacity: 1;
+    }
+
+    50% {
+        text-shadow: 0 0 6px rgba(245, 158, 11, 0.6), 0 0 12px rgba(245, 158, 11, 0.3);
+        opacity: 0.85;
+    }
+}
+
+@keyframes pulse-gold {
+
+    0%,
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 0.5;
+        transform: scale(0.95);
+    }
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.step-indicator.active {
+    animation: illuminate 1.5s ease-in-out infinite;
+}
+
+.step-text-active {
+    color: #fbbf24;
+    animation: text-glow 1.5s ease-in-out infinite;
+}
+
+.animate-pulse-slow {
+    animation: pulse-gold 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid #f59e0b;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+/* ===== CUSTOM SCROLLBAR (Dark Theme) ===== */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #0a0a0a;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #333;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* ===== PULSE TEXT ANIMATION (Illumination) ===== */
+@keyframes pulse-subtle {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.7;
+    }
+}
+
+.animate-pulse-text {
+    animation: pulse-subtle 2s infinite;
+}
+
+/* ===== ILLUMINATE GLOW (Active Steps) ===== */
+@keyframes illuminate-glow {
+    0% {
+        filter: drop-shadow(0 0 4px #f59e0b);
+    }
+
+    50% {
+        filter: drop-shadow(0 0 16px #f59e0b);
+    }
+
+    100% {
+        filter: drop-shadow(0 0 4px #f59e0b);
+    }
+}
+
+.illuminate-glow {
+    animation: illuminate-glow 1.5s ease-in-out infinite;
+}
+
+/* ===== SIDEBAR DISABLED STATE ===== */
+.sidebar-disabled {
+    opacity: 0.5 !important;
+    pointer-events: none !important;
+    user-select: none !important;
+    filter: grayscale(0.5) !important;
+}
+
+/* ===== CARD ICON HOVER ===== */
+.glass-card:hover .card-icon {
+    color: #fbbf24 !important;
+    /* amber-400 */
+    background: #171717 !important;
+    /* neutral-900 */
+}
+
+/* ===== PROGRESS STATUS BLOCK (Center Stage) ===== */
+.progress-status-block {
+    background: rgba(23, 23, 23, 0.5);
+    border-left: 2px solid rgba(245, 158, 11, 0.5);
+    padding-left: 16px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+    margin-bottom: 16px;
+    border-radius: 0 6px 6px 0;
+}
+
+.progress-status-block .step-text {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #fbbf24;
+}
+
+.progress-status-block .sub-step-text {
+    font-size: 12px;
+    color: #6b7280;
+    font-style: italic;
+}
+
+/* ===== CHAT MESSAGE BUBBLES ===== */
+.user-message-bubble {
+    background: #262626;
+    color: #e5e7eb;
+    padding: 12px 20px;
+    border-radius: 16px 16px 0 16px;
+    /* rounded-tr-sm */
+    max-width: 672px;
+    /* max-w-2xl */
+    border: 1px solid #404040;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    padding: var(--space-sm) var(--space-md) !important;
+    /* 16px 26px */
+}
+
+.assistant-message-bubble {
+    max-width: 768px;
+    /* max-w-3xl */
+}
+
+.user-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 9999px;
+    background: #404040;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.bot-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 9999px;
+    background: rgba(217, 119, 6, 0.2);
+    /* amber-600/20 */
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+/* ===== RIGHT PANEL SCROLLABLE ===== */
+/* .monitor-panel removed - handled by flex layout */
+
+/* FLEXBOX LAYOUT FOR MONITOR CONTENT */
+
+/* 1. EXPANDING CONTENT (Takes all remaining space) */
+/* 1. EXPANDING CONTENT (Takes all remaining space) */
+.monitor-idle-content,
+.monitor-step-history {
+    flex: 1 1 auto !important;
+    /* Standard grow behavior */
+    overflow-y: auto !important;
+    min-height: 0 !important;
+    padding-bottom: 16px !important;
+}
+
+/* 2. FIXED CONTENT (Takes only needed space) */
+.monitor-complete-summary,
+.monitor-progress-container {
+    flex: 0 0 auto !important;
+    width: 100% !important;
+    padding-bottom: 16px !important;
+}
+
+.monitor-complete-summary {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    text-align: center !important;
+}
+
+.monitor-warnings {
+    flex: 0 0 auto !important;
+    margin-top: auto !important;
+    /* RESTORED: Vital for sticky footer */
+    border-top: 1px solid #2a2a2a !important;
+    padding-top: 8px !important;
+}
+
+/* ===== STEP LOG TIMELINE ===== */
+.step-log-timeline {
+    display: flex;
+    gap: 12px;
+}
+
+.step-log-line {
+    width: 2px;
+    background: #262626;
+    flex-shrink: 0;
+    position: relative;
+}
+
+.step-log-dot {
+    position: absolute;
+    left: -3px;
+    top: 0;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.step-log-dot.completed {
+    background: #22c55e;
+}
+
+.step-log-dot.active {
+    background: #f59e0b;
+    animation: pulse-gold 2s infinite;
+}
+
+.step-log-dot.pending {
+    background: #404040;
+}
+
+/* ===== ENHANCED CHAT MESSAGE STYLING ===== */
+/* User message: Right-aligned with human avatar */
+[data-testid="stChatMessage"][data-testid*="user"],
+.stChatMessage[aria-label*="user"] {
+    flex-direction: row-reverse !important;
+    justify-content: flex-start !important;
+    gap: 8px !important;
+}
+
+/* AI message: Left-aligned with robot avatar (default) */
+[data-testid="stChatMessage"][data-testid*="assistant"],
+.stChatMessage[aria-label*="assistant"] {
+    flex-direction: row !important;
+}
+
+/* Chat message avatars */
+.stChatMessage img,
+.stChatMessage [data-testid="stChatMessageAvatar"] {
+    background: rgba(217, 119, 6, 0.2) !important;
+    border: 1px solid rgba(245, 158, 11, 0.3) !important;
+}
+
+/* ===== STOP BUTTON (Processing State) ===== */
+.stop-generation-btn {
+    background: #1e1e1e !important;
+    border: 1px solid #333 !important;
+    color: #e0e0e0 !important;
+    padding: 8px 16px !important;
+    border-radius: 8px !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    cursor: pointer !important;
+    transition: all 0.2s !important;
+}
+
+/* ===== PROCESSING INPUT - FIX #4, #11 ===== */
+/* NOT fixed to bottom - flows naturally below status bar */
+.processing-input-container,
+.processing-container {
+    background: #1a1a1a !important;
+    border: 1px solid #333 !important;
+    /* FIX #4: solid, not dashed */
+    padding: 12px 20px !important;
+    border-radius: 12px !important;
+    color: #666 !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    max-width: 48rem !important;
+    margin: 16px auto 0 auto !important;
+}
+
+/* ===== STATUS BAR - FIX #6, #7, #14 ===== */
+.status-block,
+.sequential-thinking-status {
+    background: rgba(30, 30, 30, 0.6) !important;
+    /* FIX #7: subtle background */
+    border: none !important;
+    border-left: 3px solid #f59e0b !important;
+    /* FIX #6: LEFT only */
+    padding: 12px 16px !important;
+    border-radius: 0 8px 8px 0 !important;
+    font-family: 'JetBrains Mono', monospace !important;
+}
+
+.sequential-thinking-status .step-text,
+.status-title {
+    color: #f59e0b !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+}
+
+.sequential-thinking-status .sub-text,
+.status-subtitle {
+    color: #6b7280 !important;
+    font-size: 13px !important;
+    font-style: italic !important;
+}
+
+/* FIX #14: Orange dot before status text */
+.status-dot {
+    width: 8px;
+    height: 8px;
+    background: #f59e0b;
+    border-radius: 50%;
+    margin-right: 12px;
+    animation: pulse 1.5s infinite;
+}
+
+/* Chat message and avatar styling is handled by inline CSS in main.py */

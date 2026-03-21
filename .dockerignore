@@ -1,0 +1,52 @@
+# Git
+.git
+.gitignore
+
+# Environment / Secrets — NEVER include in Docker images
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+node_modules/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Data (Don't copy the 100GB of PDFs!)
+DataBase/
+data/
+*.db
+*.pkl
+*.jsonl
+*.json
+*.sqlite
+*.sqlite3
+storage/
+Downloads/
+
+# Logs
+*.log
+logs/
+
+# Docker
+docker-compose.yml
+Dockerfile
+.dockerignore
+
+# IDE
+.vscode/
+.idea/
+.mypy_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+.DS_Store
+Thumbs.db

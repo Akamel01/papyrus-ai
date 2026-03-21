@@ -1,0 +1,121 @@
+# SME RAG System Configuration
+
+system:
+  project_name: "SME Research Assistant"
+  data_dir: "./data"
+  papers_dir: "./DataBase/Papers"
+  log_level: "INFO"
+
+# Hardware: RTX 4070 Super (12GB VRAM) + 64GB RAM
+hardware:
+  gpu_vram_gb: 12
+  system_ram_gb: 64
+
+ingestion:
+  pdf_parser: "pymupdf4llm"  # Primary parser
+  fallback_parser: "pymupdf"  # Fallback for problematic PDFs
+  batch_size: 100
+  max_workers: 4
+  quality_threshold: 0.7
+  checkpoint_interval: 50
+
+chunking:
+  chunk_size: 800  # tokens
+  chunk_overlap: 150  # tokens
+  strategy: "hierarchical"  # doc -> section -> paragraph
+  min_chunk_size: 100
+  tokenizer: "cl100k_base"
+
+embedding:
+  model_name: "qwen3-embedding:8b"  # Ollama model tag (was "Qwen/Qwen3-Embedding-8B" for HuggingFace)
+  device: "cuda"  # Use GPU for faster embeddings
+  batch_size: 64
+  normalize: true
+  dimension: 4096
+  quantization: "4bit"
+  # Remote Embedding via Ollama (CRITICAL: fixes 14GB HuggingFace download)
+  # Routes embedding to Dockerized Ollama instead of loading TransformerEmbedder locally
+  remote_url: "http://sme_ollama:11434"
+
+vector_store:
+  type: "qdrant"
+  host: "sme_qdrant"  # Docker service name (internal network)
+  port: 6333  # Internal Docker port
+  collection_name: "sme_papers_v2"
+  on_disk_payload: true
+  timeout: 300
+  # HNSW auto-tuned at startup (see qdrant_optimizer.py)
+  hnsw:
+    m: 32
+    ef_construct: 128
+    ef_search: 400
+  # Scalar quantization for memory efficiency
+  quantization:
+    type: "int8"
+    quantile: 0.99
+    always_ram: true
+    oversampling: 2.0
+    rescore: true
+
+bm25:
+  index_path: "./data/bm25_index_tantivy"
+  tokenizer: "word"
+  remove_stopwords: true
+
+retrieval:
+  top_k_initial: 50
+  top_k_rerank: 20
+  top_k_final: 10
+  bm25_weight: 0.3
+  semantic_weight: 0.7
+  use_reranker: true
+  reranker_model: "BAAI/bge-reranker-v2-m3"
+  reranker_device: "cuda"  # Use GPU for reranking
+  reranker_batch_size: 128
+  reranker_max_length: 512
+  reranker_dtype: "fp16"
+  mmr_diversity: 0.7
+
+generation:
+  llm_provider: "ollama"
+  model_name: "gpt-oss:120b-cloud"  # Local model with standard API support
+  base_url: "http://sme_ollama:11434"  # Docker service name + internal port
+  temperature: 0.1
+  max_tokens: 2000
+  stream: true
+  timeout: 240
+  num_ctx: 65536
+  max_context_length: 60000
+
+chat:
+  context_messages: 10
+  persist_history: true
+  history_db: "./data/chat_history.db"
+
+cache:
+  enabled: true
+  type: "redis"
+  host: "sme_redis"  # Docker service name (internal network)
+  port: 6379  # Internal Docker port
+  ttl_query_embedding: 86400  # 24 hours
+  ttl_search_results: 3600     # 1 hour
+  ttl_responses: 1800          # 30 minutes
+
+security:
+  auth_enabled: true
+  session_timeout: 3600
+  max_query_length: 2000
+  audit_logging: true
+
+monitoring:
+  log_queries: true
+  collect_feedback: true
+  metrics_retention_days: 90
+  health_check_interval: 60
+
+resilience:
+  retry_attempts: 3
+  retry_backoff_multiplier: 2
+  retry_max_wait: 30
+  circuit_breaker_threshold: 5
+  circuit_breaker_timeout: 60

@@ -1,0 +1,87 @@
+﻿--- Debugging PDF: /app/DataBase/Papers/10.21105_joss.05702.pdf ---
+Creating parser...
+Consider using the pymupdf_layout package for a greatly improved page layout analysis.
+Parsing file...
+Γ£à Parse Successful
+Title: **DOI:** [10.21105/joss.05702](https://doi.org/10.21105/joss.05702)
+Total Text Length: 22674 chars
+Sections Found: ['abstract', 'references']
+
+--- Start of Text ---
+**DOI:** [10.21105/joss.05702](https://doi.org/10.21105/joss.05702)
+
+**Software**
+
+[ΓÇó Review](https://github.com/openjournals/joss-reviews/issues/5702)
+
+[ΓÇó Repository](https://github.com/stefanradev93/BayesFlow)
+
+[ΓÇó Archive](https://doi.org/10.5281/zenodo.8346393)
+
+
+**Editor:** [├ÿystein S├╕rensen](https://osorensen.rbind.io/)
+
+**Reviewers:**
+
+[ΓÇó @sandeshkatakam](https://github.com/sandeshkatakam)
+
+[ΓÇó @LoryPack](https://github.com/LoryPack)
+
+
+**Submitted:** 27 June 2023
+**Published:** 22 September
+--- End of Preview ---
+
+Creating chunker...
+
+Γ£à Chunking Complete
+Total Chunks: 7
+
+[Chunk 0] ID: 817b188a78f86ffa25fec1c1e383c9e4
+Section: summary
+Length: 2700 chars / 601 tokens
+Content Preview: Title: **DOI:** [10.21105/joss.05702](https://doi.org/10.21105/joss.05702)
+
+Abstract: Modern Bayesia...
+
+[Chunk 1] ID: 144fd92d0f524277ee8bfa0b0e03effa
+Section: abstract
+Length: 2611 chars / 568 tokens
+Content Preview: Modern Bayesian inference involves a mixture of computational techniques for estimating,
+validating,...
+
+[Chunk 2] ID: e4ce16378c6b74763a9db5c15b165c8b
+Section: uncategorized
+Length: 1452 chars / 428 tokens
+Content Preview: **DOI:** [10.21105/joss.05702](https://doi.org/10.21105/joss.05702)
+
+**Software**
+
+[ΓÇó Review](https:...
+
+[Chunk 3] ID: 230152917d883126677ccf07853ce04c
+Section: uncategorized
+Length: 3396 chars / 742 tokens
+Content Preview: ## **Statement of Need**
+
+BayesFlow embodies functionality that is specifically designed for buildin...
+
+[Chunk 4] ID: 270ea33f50a45adaa4f561f200aaf8ca
+Section: uncategorized
+Length: 2365 chars / 650 tokens
+Content Preview: and out-of-sample predictive performance (Radev et al.,
+2023).
+
+Radev et al. (2023). BayesFlow: Amor...
+
+[Chunk 5] ID: 57ddbbb94aed848ff832ea3025d26c09
+Section: uncategorized
+Length: 2735 chars / 627 tokens
+Content Preview: a single data set needs to be analyzed, if an infrastructure for parallel computing is readily
+avail...
+
+[Chunk 6] ID: 63177ab8d44898f6ce33cee3708b1b05
+Section: uncategorized
+Length: 1604 chars / 426 tokens
+Content Preview: automated code
+[testing and documentation. The documentation is hosted at www.bayesflow.org. Current...

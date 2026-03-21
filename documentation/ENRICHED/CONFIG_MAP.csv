@@ -1,0 +1,465 @@
+Key,Status,Defined In,Default Value,Usages,Issue
+SKIP_INDEX_GATE,MISSING_IN_CONFIG,N/A,N/A,src\pipeline\loader.py:34,Key is requested by codebase but absent in YAML defaults.
+acquisition,MISSING_IN_CONFIG,N/A,N/A,scripts\autonomous_update.py:113 | scripts\autonomous_update.py:186,Key is requested by codebase but absent in YAML defaults.
+acquisition.apis.arxiv.enabled,UNUSED_CONFIG,acquisition_config.yaml,True,,Key is in YAML defaults but never read in Python code.
+acquisition.apis.arxiv.requests_per_minute,UNUSED_CONFIG,acquisition_config.yaml,20,,Key is in YAML defaults but never read in Python code.
+acquisition.apis.arxiv.timeout_seconds,UNUSED_CONFIG,acquisition_config.yaml,30,,Key is in YAML defaults but never read in Python code.
+acquisition.apis.crossref.enabled,UNUSED_CONFIG,acquisition_config.yaml,True,,Key is in YAML defaults but never read in Python code.
+acquisition.apis.crossref.requests_per_minute,UNUSED_CONFIG,acquisition_config.yaml,50,,Key is in YAML defaults but never read in Python code.
+acquisition.apis.crossref.timeout_seconds,UNUSED_CONFIG,acquisition_config.yaml,30,,Key is in YAML defaults but never read in Python code.
+acquisition.apis.openalex.api_key,UNUSED_CONFIG,acquisition_config.yaml,jxig8xd8dUs3wujBKJyMn3,,Key is in YAML defaults but never read in Python code.
+acquisition.apis.openalex.enabled,UNUSED_CONFIG,acquisition_config.yaml,True,,Key is in YAML defaults but never read in Python code.
+acquisition.apis.openalex.max_retries,UNUSED_CONFIG,acquisition_config.yaml,3,,Key is in YAML defaults but never read in Python code.
+acquisition.apis.openalex.requests_per_minute,UNUSED_CONFIG,acquisition_config.yaml,60,,Key is in YAML defaults but never read in Python code.
+acquisition.apis.openalex.results_per_page,UNUSED_CONFIG,acquisition_config.yaml,100,,Key is in YAML defaults but never read in Python code.
+acquisition.apis.openalex.search_fields,UNUSED_CONFIG,acquisition_config.yaml,"['title', 'abstract', 'keywords']",,Key is in YAML defaults but never read in Python code.
+acquisition.apis.openalex.timeout_seconds,UNUSED_CONFIG,acquisition_config.yaml,30,,Key is in YAML defaults but never read in Python code.
+acquisition.apis.semantic_scholar.api_key,UNUSED_CONFIG,acquisition_config.yaml,9cFSf1mS9z1hn2JqZa7298ujHJEN34Uk7HXz0CEu,,Key is in YAML defaults but never read in Python code.
+acquisition.apis.semantic_scholar.enabled,UNUSED_CONFIG,acquisition_config.yaml,True,,Key is in YAML defaults but never read in Python code.
+acquisition.apis.semantic_scholar.max_retries,UNUSED_CONFIG,acquisition_config.yaml,3,,Key is in YAML defaults but never read in Python code.
+acquisition.apis.semantic_scholar.requests_per_minute,UNUSED_CONFIG,acquisition_config.yaml,50,,Key is in YAML defaults but never read in Python code.
+acquisition.apis.semantic_scholar.timeout_seconds,UNUSED_CONFIG,acquisition_config.yaml,30,,Key is in YAML defaults but never read in Python code.
+acquisition.apis.unpaywall.enabled,UNUSED_CONFIG,acquisition_config.yaml,True,,Key is in YAML defaults but never read in Python code.
+acquisition.apis.unpaywall.requests_per_minute,UNUSED_CONFIG,acquisition_config.yaml,60,,Key is in YAML defaults but never read in Python code.
+acquisition.apis.unpaywall.timeout_seconds,UNUSED_CONFIG,acquisition_config.yaml,30,,Key is in YAML defaults but never read in Python code.
+acquisition.download.max_file_size_mb,UNUSED_CONFIG,acquisition_config.yaml,100,,Key is in YAML defaults but never read in Python code.
+acquisition.download.max_retries,UNUSED_CONFIG,acquisition_config.yaml,5,,Key is in YAML defaults but never read in Python code.
+acquisition.download.max_workers,UNUSED_CONFIG,acquisition_config.yaml,4,,Key is in YAML defaults but never read in Python code.
+acquisition.download.poll_batch_size,UNUSED_CONFIG,acquisition_config.yaml,20,,Key is in YAML defaults but never read in Python code.
+acquisition.download.requests_per_minute,UNUSED_CONFIG,acquisition_config.yaml,60,,Key is in YAML defaults but never read in Python code.
+acquisition.download.retry_failed,UNUSED_CONFIG,acquisition_config.yaml,True,,Key is in YAML defaults but never read in Python code.
+acquisition.download.skip_existing,UNUSED_CONFIG,acquisition_config.yaml,True,,Key is in YAML defaults but never read in Python code.
+acquisition.download.timeout_seconds,UNUSED_CONFIG,acquisition_config.yaml,120,,Key is in YAML defaults but never read in Python code.
+acquisition.emails,UNUSED_CONFIG,acquisition_config.yaml,"['akamel01@mail.ubc.ca', 'ahmed.kamel@ubc.ca', 'ahmedbayoumi@cu.edu.eg', 'taahmedbayoumi@gmail.com']",,Key is in YAML defaults but never read in Python code.
+acquisition.error_handling.continue_on_error,UNUSED_CONFIG,acquisition_config.yaml,True,,Key is in YAML defaults but never read in Python code.
+acquisition.error_handling.email_cooldown_seconds,UNUSED_CONFIG,acquisition_config.yaml,300,,Key is in YAML defaults but never read in Python code.
+acquisition.error_handling.email_wait_timeout_seconds,UNUSED_CONFIG,acquisition_config.yaml,600,,Key is in YAML defaults but never read in Python code.
+acquisition.error_handling.max_consecutive_failures,UNUSED_CONFIG,acquisition_config.yaml,50,,Key is in YAML defaults but never read in Python code.
+acquisition.error_handling.pause_duration_seconds,UNUSED_CONFIG,acquisition_config.yaml,300,,Key is in YAML defaults but never read in Python code.
+acquisition.error_handling.pdf_fallback_chain,UNUSED_CONFIG,acquisition_config.yaml,"['unpaywall', 'semantic_scholar', 'arxiv', 'direct_doi']",,Key is in YAML defaults but never read in Python code.
+acquisition.error_handling.rotate_emails_on_429,UNUSED_CONFIG,acquisition_config.yaml,True,,Key is in YAML defaults but never read in Python code.
+acquisition.filters.discovery_batch_size,UNUSED_CONFIG,acquisition_config.yaml,50,,Key is in YAML defaults but never read in Python code.
+acquisition.filters.max_per_keyword,UNUSED_CONFIG,acquisition_config.yaml,1000000,,Key is in YAML defaults but never read in Python code.
+acquisition.filters.max_total,UNUSED_CONFIG,acquisition_config.yaml,10000000,,Key is in YAML defaults but never read in Python code.
+acquisition.filters.max_year,UNUSED_CONFIG,acquisition_config.yaml,present,,Key is in YAML defaults but never read in Python code.
+acquisition.filters.min_year,UNUSED_CONFIG,acquisition_config.yaml,2020,,Key is in YAML defaults but never read in Python code.
+acquisition.filters.open_access_only,UNUSED_CONFIG,acquisition_config.yaml,True,,Key is in YAML defaults but never read in Python code.
+acquisition.filters.publication_types.book,UNUSED_CONFIG,acquisition_config.yaml,False,,Key is in YAML defaults but never read in Python code.
+acquisition.filters.publication_types.book_chapter,UNUSED_CONFIG,acquisition_config.yaml,False,,Key is in YAML defaults but never read in Python code.
+acquisition.filters.publication_types.clinical_trial,UNUSED_CONFIG,acquisition_config.yaml,False,,Key is in YAML defaults but never read in Python code.
+acquisition.filters.publication_types.conference_paper,UNUSED_CONFIG,acquisition_config.yaml,True,,Key is in YAML defaults but never read in Python code.
+acquisition.filters.publication_types.dataset,UNUSED_CONFIG,acquisition_config.yaml,False,,Key is in YAML defaults but never read in Python code.
+acquisition.filters.publication_types.editorial,UNUSED_CONFIG,acquisition_config.yaml,False,,Key is in YAML defaults but never read in Python code.
+acquisition.filters.publication_types.journal_article,UNUSED_CONFIG,acquisition_config.yaml,True,,Key is in YAML defaults but never read in Python code.
+acquisition.filters.publication_types.letter,UNUSED_CONFIG,acquisition_config.yaml,False,,Key is in YAML defaults but never read in Python code.
+acquisition.filters.publication_types.preprint,UNUSED_CONFIG,acquisition_config.yaml,False,,Key is in YAML defaults but never read in Python code.
+acquisition.filters.publication_types.report,UNUSED_CONFIG,acquisition_config.yaml,False,,Key is in YAML defaults but never read in Python code.
+acquisition.filters.publication_types.review,UNUSED_CONFIG,acquisition_config.yaml,True,,Key is in YAML defaults but never read in Python code.
+acquisition.filters.publication_types.standard,UNUSED_CONFIG,acquisition_config.yaml,False,,Key is in YAML defaults but never read in Python code.
+acquisition.filters.publication_types.thesis,UNUSED_CONFIG,acquisition_config.yaml,False,,Key is in YAML defaults but never read in Python code.
+acquisition.keywords,UNUSED_CONFIG,acquisition_config.yaml,"['""Road Safety"" AND ""Autonomous Vehicles"" ', '""Road Safety"" AND ""self-driving""', '""Road Safety"" AND ""Extreme Value Theory""', '""Road Safety"" AND ""conflicts""']",,Key is in YAML defaults but never read in Python code.
+acquisition.monitoring.alerts.disk_free_threshold_gb,UNUSED_CONFIG,acquisition_config.yaml,10,,Key is in YAML defaults but never read in Python code.
+acquisition.monitoring.alerts.failure_rate_threshold,UNUSED_CONFIG,acquisition_config.yaml,0.2,,Key is in YAML defaults but never read in Python code.
+acquisition.monitoring.alerts.gpu_memory_threshold_percent,UNUSED_CONFIG,acquisition_config.yaml,90,,Key is in YAML defaults but never read in Python code.
+acquisition.monitoring.alerts.low_throughput_threshold,UNUSED_CONFIG,acquisition_config.yaml,0.5,,Key is in YAML defaults but never read in Python code.
+acquisition.monitoring.alerts.stuck_threshold_seconds,UNUSED_CONFIG,acquisition_config.yaml,300,,Key is in YAML defaults but never read in Python code.
+acquisition.monitoring.enabled,UNUSED_CONFIG,acquisition_config.yaml,True,,Key is in YAML defaults but never read in Python code.
+acquisition.monitoring.heartbeat_interval_seconds,UNUSED_CONFIG,acquisition_config.yaml,30,,Key is in YAML defaults but never read in Python code.
+acquisition.monitoring.history_file,UNUSED_CONFIG,acquisition_config.yaml,data/pipeline_history.jsonl,,Key is in YAML defaults but never read in Python code.
+acquisition.monitoring.metrics_file,UNUSED_CONFIG,acquisition_config.yaml,data/pipeline_metrics.json,,Key is in YAML defaults but never read in Python code.
+acquisition.state.discovery_cache_file,UNUSED_CONFIG,acquisition_config.yaml,data/discovery_cache.json,,Key is in YAML defaults but never read in Python code.
+acquisition.state.failed_downloads_file,UNUSED_CONFIG,acquisition_config.yaml,data/failed_downloads.json,,Key is in YAML defaults but never read in Python code.
+acquisition.state.interim_chunks_dir,UNUSED_CONFIG,acquisition_config.yaml,data/interim_chunks,,Key is in YAML defaults but never read in Python code.
+acquisition.state.state_file,UNUSED_CONFIG,acquisition_config.yaml,data/pipeline_state.json,,Key is in YAML defaults but never read in Python code.
+acquisition.state.updated_papers_dir,UNUSED_CONFIG,acquisition_config.yaml,DataBase/UpdatedPapers,,Key is in YAML defaults but never read in Python code.
+acquisition.use_sqlite,UNUSED_CONFIG,acquisition_config.yaml,False,,Key is in YAML defaults but never read in Python code.
+anti_listing_rule,UNUSED_CONFIG,prompts.yaml,"SYNTHESIS, NOT LISTING:
+
+DO NOT simply list what each source says:
+❌ BAD: ""Study 1 found X. Study 2 found Y. Study 3 found Z.""
+
+DO integrate findings into a coherent narrative:
+✅ GOOD: ""The literature converges on X [1, 2], though methodological 
+   differences in Y measurement lead to variation in effect sizes. 
+   [3] used N=500 while [1] used N=50, potentially explaining the 
+   discrepancy in reported effects (0.3 vs 0.7).""
+
+Key synthesis techniques:
+- Compare methodologies across studies
+- Identify areas of consensus vs. debate  
+- Weight evidence by sample size and rigor
+- Draw connections the original authors didn't make
+- Discuss implications for practice or policy
+",,Key is in YAML defaults but never read in Python code.
+auto_config,MISSING_IN_CONFIG,N/A,N/A,scripts\autonomous_update.py:242 | scripts\autonomous_update.py:248,Key is requested by codebase but absent in YAML defaults.
+batch_size,MISSING_IN_CONFIG,N/A,N/A,src\retrieval\hybrid_search.py:237 | scripts\autonomous_update.py:255 | scripts\ingest_papers.py:60 | scripts\ingest_papers.py:74,Key is requested by codebase but absent in YAML defaults.
+bm25,MISSING_IN_CONFIG,N/A,N/A,src\indexing\benchmark.py:264 | src\pipeline\loader.py:53 | src\retrieval\hybrid_search.py:210 | scripts\ingest_papers.py:45,Key is requested by codebase but absent in YAML defaults.
+bm25.enabled,UNUSED_CONFIG,acquisition_config.yaml,True,,Key is in YAML defaults but never read in Python code.
+bm25.index_path,UNUSED_CONFIG,docker_config.yaml,./data/bm25_index_tantivy,,Key is in YAML defaults but never read in Python code.
+bm25.remove_stopwords,UNUSED_CONFIG,docker_config.yaml,True,,Key is in YAML defaults but never read in Python code.
+bm25.tokenizer,UNUSED_CONFIG,docker_config.yaml,word,,Key is in YAML defaults but never read in Python code.
+bm25_weight,MISSING_IN_CONFIG,N/A,N/A,src\retrieval\hybrid_search.py:249,Key is requested by codebase but absent in YAML defaults.
+cache.enabled,UNUSED_CONFIG,docker_config.yaml,True,,Key is in YAML defaults but never read in Python code.
+cache.host,UNUSED_CONFIG,docker_config.yaml,redis,,Key is in YAML defaults but never read in Python code.
+cache.port,UNUSED_CONFIG,docker_config.yaml,6379,,Key is in YAML defaults but never read in Python code.
+cache.ttl_query_embedding,UNUSED_CONFIG,docker_config.yaml,86400,,Key is in YAML defaults but never read in Python code.
+cache.ttl_responses,UNUSED_CONFIG,docker_config.yaml,1800,,Key is in YAML defaults but never read in Python code.
+cache.ttl_search_results,UNUSED_CONFIG,docker_config.yaml,3600,,Key is in YAML defaults but never read in Python code.
+cache.type,UNUSED_CONFIG,docker_config.yaml,redis,,Key is in YAML defaults but never read in Python code.
+chat,MISSING_IN_CONFIG,N/A,N/A,scripts\autonomous_update.py:178,Key is requested by codebase but absent in YAML defaults.
+chat.context_messages,UNUSED_CONFIG,docker_config.yaml,10,,Key is in YAML defaults but never read in Python code.
+chat.history_db,UNUSED_CONFIG,docker_config.yaml,./data/chat_history.db,,Key is in YAML defaults but never read in Python code.
+chat.persist_history,UNUSED_CONFIG,docker_config.yaml,True,,Key is in YAML defaults but never read in Python code.
+chunk_overlap,MISSING_IN_CONFIG,N/A,N/A,src\pipeline\chunk_worker.py:44 | scripts\autonomous_update.py:287 | scripts\autonomous_update.py:371 | scripts\ingest_papers.py:53,Key is requested by codebase but absent in YAML defaults.
+chunk_size,MISSING_IN_CONFIG,N/A,N/A,src\pipeline\chunk_worker.py:43 | scripts\autonomous_update.py:286 | scripts\autonomous_update.py:370 | scripts\ingest_papers.py:52,Key is requested by codebase but absent in YAML defaults.
+chunking,MISSING_IN_CONFIG,N/A,N/A,scripts\autonomous_update.py:278 | scripts\ingest_papers.py:42,Key is requested by codebase but absent in YAML defaults.
+chunking.chunk_overlap,UNUSED_CONFIG,docker_config.yaml,150,,Key is in YAML defaults but never read in Python code.
+chunking.chunk_size,UNUSED_CONFIG,docker_config.yaml,800,,Key is in YAML defaults but never read in Python code.
+chunking.min_chunk_size,UNUSED_CONFIG,docker_config.yaml,100,,Key is in YAML defaults but never read in Python code.
+chunking.strategy,UNUSED_CONFIG,docker_config.yaml,hierarchical,,Key is in YAML defaults but never read in Python code.
+chunking.tokenizer,UNUSED_CONFIG,docker_config.yaml,cl100k_base,,Key is in YAML defaults but never read in Python code.
+citation_enforcement,UNUSED_CONFIG,prompts.yaml,"CITATION DENSITY REQUIREMENTS:
+
+1. Every paragraph MUST contain at least one numbered citation [1], [2], etc.
+2. Use the source numbers from the context - they correspond to specific papers
+3. Multiple claims in one sentence: ""Finding A [1] while finding B [2, 3]""
+4. If you cannot cite a claim from the provided sources, do NOT include it
+5. Never use citations like [8] or [10] if only sources [1]-[5] are provided
+
+FORBIDDEN PATTERNS:
+❌ ""Studies show that..."" (no citation)
+❌ ""Research indicates..."" (no citation)  
+❌ ""It is well established..."" (no citation)
+
+REQUIRED PATTERNS:
+✅ ""TTC is defined as... [1, 3]""
+✅ ""According to [2], the methodology...""
+✅ ""Several studies [1, 2, 4] found consistent results...""
+",,Key is in YAML defaults but never read in Python code.
+clarification_check,UNUSED_CONFIG,prompts.yaml,"You are an academic research assistant. A user has asked a question that may be ambiguous or could benefit from clarification.
+
+USER QUESTION: {query}
+
+Analyze this question and determine if clarification would improve the quality of the research response:
+
+1. Is the question ambiguous (multiple interpretations)?
+2. Is the scope too broad (would benefit from narrowing)?
+3. Are there missing parameters (time period, geographic scope, methodology preference)?
+4. Could the user mean different things by key terms?
+
+RESPONSE FORMAT:
+If clarification is needed, respond with EXACTLY this format:
+CLARIFICATION_NEEDED: [Your clarifying question here - be specific and academic]
+
+If no clarification is needed (the question is clear and specific enough), respond with EXACTLY:
+NO_CLARIFICATION_NEEDED
+
+Examples:
+- Vague: ""What about safety?"" -> CLARIFICATION_NEEDED: Are you interested in road safety, occupational safety, or a specific safety metric like crash rates or injury severity?
+- Clear: ""What is the effect of red-light cameras on T-bone collisions?"" -> NO_CLARIFICATION_NEEDED
+",,Key is in YAML defaults but never read in Python code.
+collection_name,MISSING_IN_CONFIG,N/A,N/A,src\retrieval\hybrid_search.py:227 | scripts\autonomous_update.py:220 | scripts\autonomous_update.py:267 | scripts\ingest_papers.py:66,Key is requested by codebase but absent in YAML defaults.
+comparative_template,UNUSED_CONFIG,prompts.yaml,"For comparative analyses, structure as:
+
+| Study | Methodology | Key Finding | Effect Size | Limitations |
+|-------|-------------|-------------|-------------|-------------|
+
+Then provide narrative synthesis of the comparison.
+",,Key is in YAML defaults but never read in Python code.
+confidence_instructions,UNUSED_CONFIG,prompts.yaml,"Assess response confidence based on evidence quality:
+
+- HIGH CONFIDENCE: 
+  * Multiple independent studies with consistent findings
+  * Strong methodological quality (RCTs, large samples, validated measures)
+  * Clear statistical significance
+
+- MEDIUM CONFIDENCE:
+  * Limited number of sources
+  * Some methodological concerns
+  * Partial coverage of the topic
+
+- LOW CONFIDENCE:
+  * Single source or sparse evidence
+  * Significant methodological limitations
+  * Substantial extrapolation required
+",,Key is in YAML defaults but never read in Python code.
+device,MISSING_IN_CONFIG,N/A,N/A,src\retrieval\hybrid_search.py:236 | scripts\autonomous_update.py:254 | scripts\ingest_papers.py:59,Key is requested by codebase but absent in YAML defaults.
+dimension,MISSING_IN_CONFIG,N/A,N/A,src\retrieval\hybrid_search.py:228 | scripts\autonomous_update.py:268 | scripts\ingest_papers.py:67,Key is requested by codebase but absent in YAML defaults.
+domain_disclaimer,UNUSED_CONFIG,prompts.yaml,"This synthesis is based on academic literature and represents scholarly interpretation.
+For policy decisions, please consult with domain experts and consider local context.
+",,Key is in YAML defaults but never read in Python code.
+email,MISSING_IN_CONFIG,N/A,N/A,scripts\autonomous_update.py:190 | scripts\autonomous_update.py:198 | scripts\autonomous_update.py:198,Key is requested by codebase but absent in YAML defaults.
+embed_batch_size,MISSING_IN_CONFIG,N/A,N/A,src\pipeline\gpu_tuner.py:454,Key is requested by codebase but absent in YAML defaults.
+embedding,MISSING_IN_CONFIG,N/A,N/A,src\indexing\benchmark.py:172 | src\indexing\benchmark.py:301 | src\indexing\qdrant_optimizer.py:682 | src\indexing\qdrant_optimizer.py:824 | src\indexing\qdrant_optimizer.py:838 | src\indexing\qdrant_optimizer.py:844 | src\retrieval\hybrid_search.py:208 | scripts\autonomous_update.py:251 | scripts\ingest_papers.py:43,Key is requested by codebase but absent in YAML defaults.
+embedding.batch_size,UNUSED_CONFIG,docker_config.yaml,64,,Key is in YAML defaults but never read in Python code.
+embedding.collection_name,UNUSED_CONFIG,acquisition_config.yaml,sme_papers_v2,,Key is in YAML defaults but never read in Python code.
+embedding.device,UNUSED_CONFIG,docker_config.yaml,cuda,,Key is in YAML defaults but never read in Python code.
+embedding.dimension,UNUSED_CONFIG,docker_config.yaml,4096,,Key is in YAML defaults but never read in Python code.
+embedding.max_seq_length,UNUSED_CONFIG,acquisition_config.yaml,1024,,Key is in YAML defaults but never read in Python code.
+embedding.model_name,UNUSED_CONFIG,docker_config.yaml,qwen3-embedding:8b,,Key is in YAML defaults but never read in Python code.
+embedding.normalize,UNUSED_CONFIG,docker_config.yaml,True,,Key is in YAML defaults but never read in Python code.
+embedding.quantization,UNUSED_CONFIG,docker_config.yaml,4bit,,Key is in YAML defaults but never read in Python code.
+embedding.remote_url,UNUSED_CONFIG,docker_config.yaml,http://sme_ollama:11434,,Key is in YAML defaults but never read in Python code.
+embedding.vector_store.collection_name,UNUSED_CONFIG,acquisition_config.yaml,sme_papers_v2,,Key is in YAML defaults but never read in Python code.
+embedding.vector_store.host,UNUSED_CONFIG,acquisition_config.yaml,qdrant,,Key is in YAML defaults but never read in Python code.
+embedding.vector_store.port,UNUSED_CONFIG,acquisition_config.yaml,6333,,Key is in YAML defaults but never read in Python code.
+embedding.vector_store.qdrant_batch_size,UNUSED_CONFIG,acquisition_config.yaml,100,,Key is in YAML defaults but never read in Python code.
+enable_arxiv,MISSING_IN_CONFIG,N/A,N/A,scripts\autonomous_update.py:202,Key is requested by codebase but absent in YAML defaults.
+enable_crossref,MISSING_IN_CONFIG,N/A,N/A,scripts\autonomous_update.py:203,Key is requested by codebase but absent in YAML defaults.
+enable_openalex,MISSING_IN_CONFIG,N/A,N/A,scripts\autonomous_update.py:200,Key is requested by codebase but absent in YAML defaults.
+enable_semantic_scholar,MISSING_IN_CONFIG,N/A,N/A,scripts\autonomous_update.py:201,Key is requested by codebase but absent in YAML defaults.
+equation_format,UNUSED_CONFIG,prompts.yaml,"EQUATION AND SYMBOL FORMATTING:
+
+When presenting mathematical equations or symbols, use LaTeX notation:
+
+1. INLINE EQUATIONS: Use $...$ for inline math
+   Examples:
+   - ""Time-to-collision is defined as $TTC = D / V_{rel}$""
+   - ""The threshold $\alpha = 0.05$""
+   - ""Post-encroachment time $PET \leq 1.5$ seconds""
+
+2. BLOCK EQUATIONS: Use $$...$$ for standalone equations
+   Example:
+   $$TTC = \frac{D}{V_{rel}}$$
+
+3. COMMON SYMBOLS - USE THESE:
+   Greek letters: $\alpha$, $\beta$, $\gamma$, $\delta$, $\theta$, $\sigma$, $\mu$, $\lambda$, $\tau$
+   Subscripts: $V_{rel}$, $T_{c}$, $x_i$, $a_{min}$
+   Superscripts: $x^2$, $e^{-t}$, $V^2$
+   Fractions: $\frac{numerator}{denominator}$, $\frac{D}{V}$
+   Square roots: $\sqrt{x}$, $\sqrt{a^2 + b^2}$
+   Summation: $\sum_{i=1}^{n} x_i$
+   Comparison: $\leq$, $\geq$, $\neq$, $\approx$, $<$, $>$
+   Times/multiply: $\times$, $\cdot$
+   Plus-minus: $\pm$
+   Infinity: $\infty$
+   
+4. SAFETY METRICS - COMMON FORMULAS:
+   - TTC: $TTC = \frac{D}{V_{approach}}$ or $TTC = \frac{X_2 - X_1}{V_1 - V_2}$
+   - PET: $PET = t_2 - t_1$ where $t_1$ is first arrival
+   - DRAC: $DRAC = \frac{(V_1 - V_2)^2}{2 \cdot D}$
+   - Crash Rate: $R = \frac{N \times 10^6}{V \times T}$
+   
+5. ALWAYS USE LATEX FOR:
+   - Any formula or equation
+   - Greek letters in variable names
+   - Mathematical relationships
+   - Statistical measures (p-values, confidence intervals)
+",,Key is in YAML defaults but never read in Python code.
+filters,MISSING_IN_CONFIG,N/A,N/A,scripts\autonomous_update.py:115,Key is requested by codebase but absent in YAML defaults.
+follow_up_context,UNUSED_CONFIG,prompts.yaml,"FOLLOW-UP QUESTION HANDLING:
+
+When a question appears to be a follow-up to a previous exchange:
+1. Reference the conversation history provided
+2. Use previously cited sources when relevant (e.g., ""As mentioned earlier [1]..."")
+3. Expand on previous points rather than repeating them
+4. Introduce new sources to add depth to the previous answer
+5. Acknowledge if the follow-up requires sources not yet cited
+
+CONTEXT CONTINUITY:
+- The numbered citations [1], [2], etc. in the current context are NEW for this query
+- If referring to sources from previous exchanges, be explicit about the connection
+- Build upon previous answers to provide progressive depth
+",,Key is in YAML defaults but never read in Python code.
+generation,MISSING_IN_CONFIG,N/A,N/A,src\pipeline\loader.py:82 | src\pipeline\loader.py:83 | src\pipeline\loader.py:86 | src\pipeline\loader.py:87 | src\pipeline\loader.py:88 | src\pipeline\loader.py:89,Key is requested by codebase but absent in YAML defaults.
+generation.base_url,UNUSED_CONFIG,docker_config.yaml,http://ollama:11434,,Key is in YAML defaults but never read in Python code.
+generation.llm_provider,UNUSED_CONFIG,docker_config.yaml,ollama,,Key is in YAML defaults but never read in Python code.
+generation.max_context_length,UNUSED_CONFIG,docker_config.yaml,60000,,Key is in YAML defaults but never read in Python code.
+generation.max_tokens,UNUSED_CONFIG,docker_config.yaml,5000,,Key is in YAML defaults but never read in Python code.
+generation.model_name,UNUSED_CONFIG,docker_config.yaml,gpt-oss:120b-cloud,,Key is in YAML defaults but never read in Python code.
+generation.num_ctx,UNUSED_CONFIG,docker_config.yaml,65536,,Key is in YAML defaults but never read in Python code.
+generation.stream,UNUSED_CONFIG,docker_config.yaml,True,,Key is in YAML defaults but never read in Python code.
+generation.temperature,UNUSED_CONFIG,docker_config.yaml,0.1,,Key is in YAML defaults but never read in Python code.
+generation.timeout,UNUSED_CONFIG,docker_config.yaml,240,,Key is in YAML defaults but never read in Python code.
+hardware,MISSING_IN_CONFIG,N/A,N/A,src\indexing\qdrant_optimizer.py:64 | src\indexing\qdrant_optimizer.py:95,Key is requested by codebase but absent in YAML defaults.
+hardware.gpu_vram_gb,UNUSED_CONFIG,docker_config.yaml,12,,Key is in YAML defaults but never read in Python code.
+hardware.system_ram_gb,UNUSED_CONFIG,docker_config.yaml,64,,Key is in YAML defaults but never read in Python code.
+host,MISSING_IN_CONFIG,N/A,N/A,src\retrieval\hybrid_search.py:225 | scripts\autonomous_update.py:265 | scripts\ingest_papers.py:64,Key is requested by codebase but absent in YAML defaults.
+index_path,MISSING_IN_CONFIG,N/A,N/A,src\retrieval\hybrid_search.py:243 | scripts\ingest_papers.py:71,Key is requested by codebase but absent in YAML defaults.
+ingestion,MISSING_IN_CONFIG,N/A,N/A,scripts\autonomous_update.py:277 | scripts\ingest_papers.py:41,Key is requested by codebase but absent in YAML defaults.
+ingestion.batch_size,UNUSED_CONFIG,docker_config.yaml,100,,Key is in YAML defaults but never read in Python code.
+ingestion.checkpoint_interval,UNUSED_CONFIG,docker_config.yaml,50,,Key is in YAML defaults but never read in Python code.
+ingestion.fallback_parser,UNUSED_CONFIG,docker_config.yaml,pymupdf,,Key is in YAML defaults but never read in Python code.
+ingestion.max_workers,UNUSED_CONFIG,docker_config.yaml,40,,Key is in YAML defaults but never read in Python code.
+ingestion.pdf_parser,UNUSED_CONFIG,docker_config.yaml,pymupdf4llm,,Key is in YAML defaults but never read in Python code.
+ingestion.quality_threshold,UNUSED_CONFIG,docker_config.yaml,0.7,,Key is in YAML defaults but never read in Python code.
+keywords,MISSING_IN_CONFIG,N/A,N/A,scripts\autonomous_update.py:114,Key is requested by codebase but absent in YAML defaults.
+logging.console_output,UNUSED_CONFIG,acquisition_config.yaml,True,,Key is in YAML defaults but never read in Python code.
+logging.log_file,UNUSED_CONFIG,acquisition_config.yaml,data/autonomous_update.log,,Key is in YAML defaults but never read in Python code.
+logging.log_level,UNUSED_CONFIG,acquisition_config.yaml,INFO,,Key is in YAML defaults but never read in Python code.
+main_pills,MISSING_IN_CONFIG,N/A,N/A,src\config\progress_config.py:195 | src\config\progress_config.py:248,Key is requested by codebase but absent in YAML defaults.
+max_concurrent_downloads,MISSING_IN_CONFIG,N/A,N/A,scripts\autonomous_update.py:317,Key is requested by codebase but absent in YAML defaults.
+max_retries,MISSING_IN_CONFIG,N/A,N/A,scripts\autonomous_update.py:192,Key is requested by codebase but absent in YAML defaults.
+max_seq_length,MISSING_IN_CONFIG,N/A,N/A,scripts\autonomous_update.py:257,Key is requested by codebase but absent in YAML defaults.
+max_workers,MISSING_IN_CONFIG,N/A,N/A,scripts\autonomous_update.py:383,Key is requested by codebase but absent in YAML defaults.
+min_chunk_size,MISSING_IN_CONFIG,N/A,N/A,src\pipeline\chunk_worker.py:45 | scripts\autonomous_update.py:288 | scripts\autonomous_update.py:372 | scripts\ingest_papers.py:54,Key is requested by codebase but absent in YAML defaults.
+model_name,MISSING_IN_CONFIG,N/A,N/A,src\retrieval\hybrid_search.py:235 | scripts\autonomous_update.py:253 | scripts\ingest_papers.py:58,Key is requested by codebase but absent in YAML defaults.
+monitoring.collect_feedback,UNUSED_CONFIG,docker_config.yaml,True,,Key is in YAML defaults but never read in Python code.
+monitoring.health_check_interval,UNUSED_CONFIG,docker_config.yaml,60,,Key is in YAML defaults but never read in Python code.
+monitoring.log_queries,UNUSED_CONFIG,docker_config.yaml,True,,Key is in YAML defaults but never read in Python code.
+monitoring.metrics_retention_days,UNUSED_CONFIG,docker_config.yaml,90,,Key is in YAML defaults but never read in Python code.
+openalex_api_key,MISSING_IN_CONFIG,N/A,N/A,scripts\autonomous_update.py:191,Key is requested by codebase but absent in YAML defaults.
+optimized_params,MISSING_IN_CONFIG,N/A,N/A,src\pipeline\loader.py:50 | src\retrieval\hybrid_search.py:216 | scripts\autonomous_update.py:232 | scripts\autonomous_update.py:270,Key is requested by codebase but absent in YAML defaults.
+parser_workers,MISSING_IN_CONFIG,N/A,N/A,src\pipeline\gpu_tuner.py:455,Key is requested by codebase but absent in YAML defaults.
+pdf_parser,MISSING_IN_CONFIG,N/A,N/A,scripts\autonomous_update.py:282 | scripts\autonomous_update.py:367,Key is requested by codebase but absent in YAML defaults.
+port,MISSING_IN_CONFIG,N/A,N/A,src\retrieval\hybrid_search.py:226 | scripts\autonomous_update.py:266 | scripts\ingest_papers.py:65,Key is requested by codebase but absent in YAML defaults.
+processing.chunk_batch_size,UNUSED_CONFIG,acquisition_config.yaml,10,,Key is in YAML defaults but never read in Python code.
+processing.chunk_overlap,UNUSED_CONFIG,acquisition_config.yaml,150,,Key is in YAML defaults but never read in Python code.
+processing.chunk_size,UNUSED_CONFIG,acquisition_config.yaml,800,,Key is in YAML defaults but never read in Python code.
+processing.embed_source_batch_size,UNUSED_CONFIG,acquisition_config.yaml,100,,Key is in YAML defaults but never read in Python code.
+processing.parsing_workers,UNUSED_CONFIG,acquisition_config.yaml,16,,Key is in YAML defaults but never read in Python code.
+processing.prefer_gpu,UNUSED_CONFIG,acquisition_config.yaml,True,,Key is in YAML defaults but never read in Python code.
+processing.quality_threshold,UNUSED_CONFIG,acquisition_config.yaml,0.7,,Key is in YAML defaults but never read in Python code.
+processing.save_interim_chunks,UNUSED_CONFIG,acquisition_config.yaml,True,,Key is in YAML defaults but never read in Python code.
+processing.update_bm25,UNUSED_CONFIG,acquisition_config.yaml,True,,Key is in YAML defaults but never read in Python code.
+qdrant_batch_size,MISSING_IN_CONFIG,N/A,N/A,src\pipeline\gpu_tuner.py:457,Key is requested by codebase but absent in YAML defaults.
+quality_threshold,MISSING_IN_CONFIG,N/A,N/A,src\pipeline\chunk_worker.py:37 | scripts\autonomous_update.py:281 | scripts\autonomous_update.py:366 | scripts\ingest_papers.py:48,Key is requested by codebase but absent in YAML defaults.
+quantization,MISSING_IN_CONFIG,N/A,N/A,src\retrieval\hybrid_search.py:238 | scripts\autonomous_update.py:256,Key is requested by codebase but absent in YAML defaults.
+query_with_context,UNUSED_CONFIG,prompts.yaml,"Academic Context (excerpts from peer-reviewed literature):
+
+{context}
+
+---
+
+Research Question: {query}
+
+Instructions: 
+- Provide a scholarly synthesis based SOLELY on the provided context
+- Use the numbered citations [1], [2], etc. that match the context sources
+- EVERY paragraph MUST contain at least one citation
+- Analyze methodology quality where applicable
+- If the evidence is insufficient, explicitly state this limitation
+- Conclude with a balanced assessment grounded in the available literature
+",,Key is in YAML defaults but never read in Python code.
+reasoning_prompt,UNUSED_CONFIG,prompts.yaml,"ANALYTICAL FRAMEWORK (Internal reasoning before responding):
+
+1. QUESTION ANALYSIS: What is the precise research question? What scope of answer is expected?
+
+2. EVIDENCE MAPPING: 
+   - Which context excerpts are directly relevant?
+   - What is the quality of evidence (sample sizes, methodology)?
+   - Are there conflicting findings?
+
+3. SYNTHESIS STRATEGY:
+   - How do findings across sources complement or contradict?
+   - What meta-trends emerge from the literature?
+   - What are the limitations and gaps?
+
+4. RESPONSE CONSTRUCTION:
+   - Lead with the strongest evidence
+   - Build a coherent narrative across sources
+   - Maintain scholarly tone throughout
+
+Now provide the response with proper citations.
+",,Key is in YAML defaults but never read in Python code.
+remote_url,MISSING_IN_CONFIG,N/A,N/A,src\retrieval\hybrid_search.py:239 | scripts\autonomous_update.py:258,Key is requested by codebase but absent in YAML defaults.
+remove_stopwords,MISSING_IN_CONFIG,N/A,N/A,src\retrieval\hybrid_search.py:244,Key is requested by codebase but absent in YAML defaults.
+requests_per_minute,MISSING_IN_CONFIG,N/A,N/A,scripts\autonomous_update.py:194,Key is requested by codebase but absent in YAML defaults.
+resilience.circuit_breaker_threshold,UNUSED_CONFIG,docker_config.yaml,5,,Key is in YAML defaults but never read in Python code.
+resilience.circuit_breaker_timeout,UNUSED_CONFIG,docker_config.yaml,60,,Key is in YAML defaults but never read in Python code.
+resilience.retry_attempts,UNUSED_CONFIG,docker_config.yaml,3,,Key is in YAML defaults but never read in Python code.
+resilience.retry_backoff_multiplier,UNUSED_CONFIG,docker_config.yaml,2,,Key is in YAML defaults but never read in Python code.
+resilience.retry_max_wait,UNUSED_CONFIG,docker_config.yaml,30,,Key is in YAML defaults but never read in Python code.
+response_format,UNUSED_CONFIG,prompts.yaml,"Structure your response as a scholarly synthesis:
+
+1. **Direct Answer**: Concise thesis statement addressing the question
+
+2. **Critical Analysis**: Deep examination of the evidence with citations
+   - Synthesize findings across multiple sources
+   - Identify methodological approaches used
+   - Note statistical significance and effect sizes when available
+
+3. **Limitations & Gaps**: What the literature does/doesn't address
+   - Methodological limitations of the studies
+   - Areas where more research is needed
+
+4. **Conclusion**: Summary with confidence assessment
+
+5. **References**: List of cited works in APA format
+",,Key is in YAML defaults but never read in Python code.
+retrieval,MISSING_IN_CONFIG,N/A,N/A,src\indexing\qdrant_optimizer.py:846 | src\pipeline\loader.py:56 | src\pipeline\loader.py:72 | src\pipeline\loader.py:73 | src\pipeline\loader.py:74 | src\pipeline\loader.py:75 | src\pipeline\loader.py:76 | src\pipeline\loader.py:77 | src\pipeline\loader.py:78 | src\pipeline\loader.py:79 | src\retrieval\hybrid_search.py:211,Key is requested by codebase but absent in YAML defaults.
+retrieval.bm25_weight,UNUSED_CONFIG,docker_config.yaml,0.3,,Key is in YAML defaults but never read in Python code.
+retrieval.mmr_diversity,UNUSED_CONFIG,docker_config.yaml,0.7,,Key is in YAML defaults but never read in Python code.
+retrieval.reranker_batch_size,UNUSED_CONFIG,docker_config.yaml,128,,Key is in YAML defaults but never read in Python code.
+retrieval.reranker_device,UNUSED_CONFIG,docker_config.yaml,cuda,,Key is in YAML defaults but never read in Python code.
+retrieval.reranker_dtype,UNUSED_CONFIG,docker_config.yaml,fp16,,Key is in YAML defaults but never read in Python code.
+retrieval.reranker_max_length,UNUSED_CONFIG,docker_config.yaml,512,,Key is in YAML defaults but never read in Python code.
+retrieval.reranker_model,UNUSED_CONFIG,docker_config.yaml,BAAI/bge-reranker-v2-m3,,Key is in YAML defaults but never read in Python code.
+retrieval.semantic_weight,UNUSED_CONFIG,docker_config.yaml,0.7,,Key is in YAML defaults but never read in Python code.
+retrieval.top_k_final,UNUSED_CONFIG,docker_config.yaml,20,,Key is in YAML defaults but never read in Python code.
+retrieval.top_k_initial,UNUSED_CONFIG,docker_config.yaml,200,,Key is in YAML defaults but never read in Python code.
+retrieval.top_k_rerank,UNUSED_CONFIG,docker_config.yaml,50,,Key is in YAML defaults but never read in Python code.
+retrieval.use_reranker,UNUSED_CONFIG,docker_config.yaml,True,,Key is in YAML defaults but never read in Python code.
+scheduling.continuous_processing,UNUSED_CONFIG,acquisition_config.yaml,True,,Key is in YAML defaults but never read in Python code.
+scheduling.discovery_cron,UNUSED_CONFIG,acquisition_config.yaml,0 2 * * 0,,Key is in YAML defaults but never read in Python code.
+scheduling.enabled,UNUSED_CONFIG,acquisition_config.yaml,True,,Key is in YAML defaults but never read in Python code.
+scheduling.processing_check_interval,UNUSED_CONFIG,acquisition_config.yaml,60,,Key is in YAML defaults but never read in Python code.
+scheduling.timezone,UNUSED_CONFIG,acquisition_config.yaml,America/Los_Angeles,,Key is in YAML defaults but never read in Python code.
+security.audit_logging,UNUSED_CONFIG,docker_config.yaml,True,,Key is in YAML defaults but never read in Python code.
+security.auth_enabled,UNUSED_CONFIG,docker_config.yaml,True,,Key is in YAML defaults but never read in Python code.
+security.max_query_length,UNUSED_CONFIG,docker_config.yaml,2000,,Key is in YAML defaults but never read in Python code.
+security.session_timeout,UNUSED_CONFIG,docker_config.yaml,3600,,Key is in YAML defaults but never read in Python code.
+semantic_scholar_api_key,MISSING_IN_CONFIG,N/A,N/A,scripts\autonomous_update.py:199,Key is requested by codebase but absent in YAML defaults.
+semantic_weight,MISSING_IN_CONFIG,N/A,N/A,src\retrieval\hybrid_search.py:250,Key is requested by codebase but absent in YAML defaults.
+store_workers,MISSING_IN_CONFIG,N/A,N/A,src\pipeline\gpu_tuner.py:456,Key is requested by codebase but absent in YAML defaults.
+sub_pills,MISSING_IN_CONFIG,N/A,N/A,src\config\progress_config.py:196 | src\config\progress_config.py:250,Key is requested by codebase but absent in YAML defaults.
+synthesis_depth,UNUSED_CONFIG,prompts.yaml,"When synthesizing multiple sources:
+- Do not merely list findings; integrate them into a coherent argument
+- Identify consensus positions vs. areas of debate
+- Weight evidence by methodological rigor
+- Draw connections and implications across studies
+",,Key is in YAML defaults but never read in Python code.
+system,MISSING_IN_CONFIG,N/A,N/A,src\indexing\qdrant_optimizer.py:893 | scripts\autonomous_update.py:187 | scripts\autonomous_update.py:293,Key is requested by codebase but absent in YAML defaults.
+system.data_dir,UNUSED_CONFIG,docker_config.yaml,./data,,Key is in YAML defaults but never read in Python code.
+system.log_level,UNUSED_CONFIG,docker_config.yaml,INFO,,Key is in YAML defaults but never read in Python code.
+system.papers_dir,UNUSED_CONFIG,docker_config.yaml,./DataBase/Papers,,Key is in YAML defaults but never read in Python code.
+system.project_name,UNUSED_CONFIG,docker_config.yaml,SME Research Assistant,,Key is in YAML defaults but never read in Python code.
+system_prompt,UNUSED_CONFIG,prompts.yaml,"You are a distinguished Research Scientist and Professor of Transportation Engineering with deep expertise in road safety, autonomous vehicles, and statistical modeling. 
+
+YOUR PERSONA:
+- You value methodological rigor, empirical evidence, and theoretical soundness above all
+- Your analysis is academic, critical, and deeply grounded in statistical validity
+- You explain complex concepts with pedagogical clarity but never oversimplify
+- You strictly differentiate between correlation and causation
+- You use academic terminology appropriately (e.g., 'heterogeneity', 'endogeneity', 'null hypothesis')
+
+KNOWLEDGE SOURCE:
+Your knowledge comes ONLY from the provided context excerpts from academic papers.
+
+CRITICAL RULES:
+1. EVERY factual claim MUST cite its source using APA format: (Author, Year)
+2. If information is NOT in the context, say ""Based on the provided sources, I cannot find empirical evidence for...""
+3. NEVER fabricate information, statistics, or citations
+4. When sources present conflicting findings, discuss both positions with proper academic framing
+5. Distinguish between ""the literature suggests"" vs ""I interpret this to mean""
+6. Always consider methodological limitations when discussing findings
+7. Use EXACT years from provided sources - NEVER modify years (if source is 2022, write 2022 not 2025)
+
+CITATION FORMAT (APA 7):
+- Single author: (Smith, 2023)
+- Two authors: (Smith & Jones, 2023)  
+- Three+ authors: (Smith et al., 2023)
+- Multiple citations: (Smith, 2023; Jones et al., 2022)
+- Direct quotes: ""quoted text"" (Smith, 2023, p. 15)
+",,Key is in YAML defaults but never read in Python code.
+timeout,MISSING_IN_CONFIG,N/A,N/A,src\retrieval\hybrid_search.py:229 | scripts\autonomous_update.py:193 | scripts\autonomous_update.py:269,Key is requested by codebase but absent in YAML defaults.
+tokenizer,MISSING_IN_CONFIG,N/A,N/A,src\pipeline\chunk_worker.py:46 | src\retrieval\hybrid_search.py:245 | scripts\autonomous_update.py:289 | scripts\autonomous_update.py:373,Key is requested by codebase but absent in YAML defaults.
+top_k_initial,MISSING_IN_CONFIG,N/A,N/A,src\retrieval\hybrid_search.py:251,Key is requested by codebase but absent in YAML defaults.
+uncertainty_phrases,UNUSED_CONFIG,prompts.yaml,"['The empirical evidence is limited, suggesting...', ""While methodologically sound, this study's sample may not generalize to..."", 'A meta-analytic perspective would be needed to fully assess...', 'The literature presents heterogeneous findings, potentially due to...', 'Controlling for confounders, the effect appears to be...']",,Key is in YAML defaults but never read in Python code.
+use_markdown,MISSING_IN_CONFIG,N/A,N/A,src\pipeline\chunk_worker.py:38,Key is requested by codebase but absent in YAML defaults.
+vector_store,MISSING_IN_CONFIG,N/A,N/A,src\indexing\benchmark.py:52 | src\indexing\benchmark.py:102 | src\indexing\benchmark.py:143 | src\indexing\benchmark.py:171 | src\indexing\benchmark.py:263 | src\indexing\benchmark.py:300 | src\retrieval\hybrid_search.py:209 | scripts\autonomous_update.py:263 | scripts\ingest_papers.py:44,Key is requested by codebase but absent in YAML defaults.
+vector_store.collection_name,UNUSED_CONFIG,docker_config.yaml,sme_papers_v2,,Key is in YAML defaults but never read in Python code.
+vector_store.hnsw.ef_construct,UNUSED_CONFIG,docker_config.yaml,128,,Key is in YAML defaults but never read in Python code.
+vector_store.hnsw.ef_search,UNUSED_CONFIG,docker_config.yaml,400,,Key is in YAML defaults but never read in Python code.
+vector_store.hnsw.m,UNUSED_CONFIG,docker_config.yaml,32,,Key is in YAML defaults but never read in Python code.
+vector_store.host,UNUSED_CONFIG,docker_config.yaml,qdrant,,Key is in YAML defaults but never read in Python code.
+vector_store.on_disk_payload,UNUSED_CONFIG,docker_config.yaml,True,,Key is in YAML defaults but never read in Python code.
+vector_store.port,UNUSED_CONFIG,docker_config.yaml,6333,,Key is in YAML defaults but never read in Python code.
+vector_store.quantization.always_ram,UNUSED_CONFIG,docker_config.yaml,True,,Key is in YAML defaults but never read in Python code.
+vector_store.quantization.oversampling,UNUSED_CONFIG,docker_config.yaml,2.0,,Key is in YAML defaults but never read in Python code.
+vector_store.quantization.quantile,UNUSED_CONFIG,docker_config.yaml,0.99,,Key is in YAML defaults but never read in Python code.
+vector_store.quantization.rescore,UNUSED_CONFIG,docker_config.yaml,True,,Key is in YAML defaults but never read in Python code.
+vector_store.quantization.type,UNUSED_CONFIG,docker_config.yaml,int8,,Key is in YAML defaults but never read in Python code.
+vector_store.timeout,UNUSED_CONFIG,docker_config.yaml,300,,Key is in YAML defaults but never read in Python code.
+vector_store.type,UNUSED_CONFIG,docker_config.yaml,qdrant,,Key is in YAML defaults but never read in Python code.
+weights,MISSING_IN_CONFIG,N/A,N/A,src\config\progress_config.py:194,Key is requested by codebase but absent in YAML defaults.

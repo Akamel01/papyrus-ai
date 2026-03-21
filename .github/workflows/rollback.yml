@@ -1,0 +1,80 @@
+name: Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to rollback to (tag, SHA, or "previous")'
+        required: false
+        default: 'previous'
+
+env:
+  DEPLOY_HOST: papyrus-ai.net
+
+jobs:
+  rollback:
+    name: Rollback Deployment
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
+
+      - name: Add host key
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ env.DEPLOY_HOST }} >> ~/.ssh/known_hosts
+        continue-on-error: true
+
+      - name: Execute rollback
+        run: |
+          ssh deploy@${{ env.DEPLOY_HOST }} << 'ENDSSH'
+            cd /opt/sme
+
+            # Restore from last backup if available
+            if [ -f ./scripts/restore.sh ]; then
+              ./scripts/restore.sh --latest
+            fi
+
+            # Rollback to specific version if requested
+            if [ "${{ inputs.version }}" != "previous" ]; then
+              git fetch --all
+              git checkout ${{ inputs.version }}
+              docker compose up -d --build
+            else
+              # Rollback to previous commit
+              git reset --hard HEAD~1
+              docker compose up -d --build
+            fi
+
+            # Verify rollback
+            docker compose ps
+            curl -f http://localhost:8080/chat || exit 1
+          ENDSSH
+        continue-on-error: true
+
+      - name: Notify rollback
+        if: vars.SLACK_WEBHOOK_URL != ''
+        uses: slackapi/slack-github-action@v1
+        with:
+          payload: |
+            {
+              "text": "Rollback executed",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "Rolled back to version: *${{ inputs.version || 'previous' }}*"
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ vars.SLACK_WEBHOOK_URL }}
+        continue-on-error: true

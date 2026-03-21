@@ -1,0 +1,5 @@
+{
+    "model": "gemini-3-pro-preview:latest",
+    "prompt": "Say Gemini",
+    "stream": false
+}

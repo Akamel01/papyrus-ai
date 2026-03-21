@@ -1,0 +1,272 @@
+[
+  {
+    "source_label": "SOURCE_0",
+    "citation": "Zheng et al., 2018a (doi:10.1016/j.amar.2020.100111)",
+    "claim_text": "Extreme value theory has been applied in before‑after safety studies using traffic‑conflict‑based safety estimations.",
+    "methodology_type": "statistical modeling",
+    "methodology_context": "application of EVT to before‑after safety study data",
+    "topics": ["extreme value theory", "traffic safety", "before‑after study"],
+    "certainty": "high",
+    "year": 2020
+  },
+  {
+    "source_label": "SOURCE_0",
+    "citation": "Zheng et al., 2019b (doi:10.1016/j.amar.2020.100111)",
+    "claim_text": "A Bayesian hierarchical modeling approach was proposed to combine traffic conflicts from different sites for developing extreme value theory models.",
+    "methodology_type": "bayesian hierarchical modeling",
+    "methodology_context": "development of site‑level EVT models using hierarchical Bayesian framework",
+    "topics": ["bayesian hierarchical model", "extreme value theory", "traffic conflicts"],
+    "certainty": "high",
+    "year": 2020
+  },
+  {
+    "source_label": "SOURCE_0",
+    "citation": "Zheng et al., 2019b (doi:10.1016/j.amar.2020.100111)",
+    "claim_text": "The Bayesian hierarchical extreme value model was limited to a single conflict indicator.",
+    "methodology_type": "model limitation",
+    "methodology_context": "single‑indicator Bayesian EVT model",
+    "topics": ["model limitation", "conflict indicator", "extreme value theory"],
+    "certainty": "moderate",
+    "year": 2020
+  },
+  {
+    "source_label": "SOURCE_0",
+    "citation": "Ismail et al., 2011 (doi:10.1016/j.amar.2020.100111)",
+    "claim_text": "A single conflict indicator represents only a partial severity aspect of a traffic event.",
+    "methodology_type": "conceptual claim",
+    "methodology_context": "interpretation of conflict indicators",
+    "topics": ["conflict indicator", "traffic event severity"],
+    "certainty": "moderate",
+    "year": 2020
+  },
+  {
+    "source_label": "SOURCE_0",
+    "citation": "Zheng et al., 2019b (doi:10.1016/j.amar.2020.100111)",
+    "claim_text": "Bivariate extreme value models can integrate more than one conflict indicator.",
+    "methodology_type": "statistical modeling",
+    "methodology_context": "development of bivariate EVT models for traffic conflicts",
+    "topics": ["bivariate extreme value theory", "conflict indicators", "traffic safety"],
+    "certainty": "high",
+    "year": 2020
+  },
+  {
+    "source_label": "SOURCE_1",
+    "citation": "Zheng et al., 2019b (doi:10.1016/j.amar.2020.100142)",
+    "claim_text": "Thresholds that are too liberal overestimate expected crash numbers by misclassifying safe interactions as conflicts.",
+    "methodology_type": "empirical analysis",
+    "methodology_context": "sensitivity of crash frequency estimates to threshold selection",
+    "topics": ["threshold selection", "crash frequency estimation", "traffic conflicts"],
+    "certainty": "high",
+    "year": 2020
+  },
+  {
+    "source_label": "SOURCE_1",
+    "citation": "Zheng et al., 2019b (doi:10.1016/j.amar.2020.100142)",
+    "claim_text": "A range of thresholds exists that yields statistically equal crash‑frequency estimates because severity measurement can be based on multiple conflict indicators via subjective judgement or objective clustering.",
+    "methodology_type": "empirical analysis",
+    "methodology_context": "identifying stable threshold intervals for conflict‑based safety metrics",
+    "topics": ["threshold stability", "subjective judgement", "objective clustering", "traffic safety"],
+    "certainty": "moderate",
+    "year": 2020
+  },
+  {
+    "source_label": "SOURCE_1",
+    "citation": "Zheng et al., 2018b (doi:10.1016/j.amar.2020.100142)",
+    "claim_text": "Multivariate extreme value theory frameworks have been used to incorporate different indicators for road‑safety estimation.",
+    "methodology_type": "statistical modeling",
+    "methodology_context": "application of multivariate EVT to traffic‑conflict data",
+    "topics": ["multivariate extreme value theory", "road safety", "conflict indicators"],
+    "certainty": "high",
+    "year": 2020
+  },
+  {
+    "source_label": "SOURCE_1",
+    "citation": "Lord and Mannering, 2010 (doi:10.1016/j.amar.2020.100142)",
+    "claim_text": "Modeling traffic conflicts without accounting for temporal and spatial correlation leads to misspecified models and biased, inefficient parameter estimates.",
+    "methodology_type": "theoretical claim",
+    "methodology_context": "importance of accounting for spatiotemporal correlation in conflict models",
+    "topics": ["temporal correlation", "spatial correlation", "model misspecification"],
+    "certainty": "high",
+    "year": 2020
+  },
+  {
+    "source_label": "SOURCE_1",
+    "citation": "Mannering et al., 2016 (doi:10.1016/j.amar.2020.100142)",
+    "claim_text": "Ignoring unobserved heterogeneity in traffic‑conflict modeling produces biased and inefficient estimates and erroneous inferences.",
+    "methodology_type": "theoretical claim",
+    "methodology_context": "effects of unobserved heterogeneity on conflict‑frequency models",
+    "topics": ["unobserved heterogeneity", "bias", "traffic conflict modeling"],
+    "certainty": "high",
+    "year": 2020
+  },
+  {
+    "source_label": "SOURCE_1",
+    "citation": "Salman and Al (doi:10.1016/j.amar.2020.100142)",
+    "claim_text": "Linear regression with ordinary least squares is the simplest method to model conflict frequency using external factors as predictors.",
+    "methodology_type": "regression analysis",
+    "methodology_context": "application of OLS to conflict‑frequency data",
+    "topics": ["linear regression", "conflict frequency", "ordinary least squares"],
+    "certainty": "high",
+    "year": 2020
+  },
+  {
+    "source_label": "SOURCE_2",
+    "citation": "Zheng et al., 2014a (doi:10.1016/j.amar.2020.100142)",
+    "claim_text": "Extreme value theory distributions based on proximity indicators such as time‑to‑collision can be used to relate traffic conflicts to corresponding crashes.",
+    param "methodology_type": "statistical modeling",
+    "methodology_context": "use of EVT with TTC as a proximity indicator",
+    "topics": ["extreme value theory", "time‑to‑collision", "crash estimation"],
+    "certainty": "high",
+    "year": 2020
+  },
+  {
+    "source_label": "SOURCE_2",
+    "citation": "Wang et al., 2019 (doi:10.1016/j.amar.2020.100142)",
+    "claim_text": "Bivariate generalized Pareto distribution modeling methods have been applied to estimate crashes from traffic conflicts at signalized intersections.",
+    "methodology_type": "statistical modeling",
+    "methodology_context": "bivariate GPD applied to intersection conflict data",
+    "topics": ["bivariate generalized Pareto", "crash estimation", "signalized intersections"],
+    "certainty": "high",
+    "year": 2020
+  },
+  {
+    "source_label": "SOURCE_2",
+    "citation": "Zheng et al., 2019c (doi:10.1016/j.amar.2020.100142)",
+    "claim_text": "Joint‑site univariate EVT models improve precision of estimates by borrowing strength across sites, allow covariates for non‑stationary extremes, and can address unobserved heterogeneity.",
+    "methodology_type": "statistical modeling",
+    "methodology_context": "joint‑site univariate EVT framework",
+    "topics": ["univariate EVT", "joint‑site modeling", "covariates", "heterogeneity"],
+    "certainty": "high",
+    "year": 2020
+  },
+  {
+    "source_label": "SOURCE_2",
+    "citation": "Zheng et al., 2019c (doi:10.1016/j.amar.2020.100142)",
+    "claim_text": "Error terms with assumed distributions in EVT models may not fully capture unobserved heterogeneity.",
+    "methodology_type": "model limitation",
+    "methodology_context": "distributional assumptions in EVT",
+    "topics": ["error term", "unobserved heterogeneity", "EVT model limitation"],
+    "certainty": "moderate",
+    "year": 2020
+  },
+  {
+    "source_label": "SOURCE_3",
+    "citation": "Kaparias et al., 2010 (doi:10.1016/j.trc.2019.04.015)",
+    "claim_text": "Severity of traffic events can be rated using conflict indicators through subjective judgement or objective cluster methods.",
+    "methodology_type": "methodological approach",
+    "methodology_context": "subjective vs. objective rating of conflict severity",
+    "topics": ["conflict indicators", "severity rating", "subjective judgement", "clustering"],
+    "certainty": "high",
+    "year": 2019
+  },
+  {
+    "source_label": "SOURCE_3",
+    "citation": "Jonasson and Rootzén, 2014 (doi:10.1016/j.trc.2019.04.015)",
+    "claim_text": "A bivariate block‑maxima modeling method was introduced to combine a surrogate safety measure (TTC) with explanatory variables for crash estimation.",
+    "methodology_type": "statistical modeling",
+    "methodology_context": "bivariate block‑maxima approach for crash prediction",
+    "topics": ["bivariate block maxima", "TTC", "crash estimation"],
+    "certainty": "high",
+    "year": 2019
+  },
+  {
+    "source_label": "SOURCE_3",
+    "citation": "Zheng et al., 2018 (doi:10.1016/j.trc.2019.04.015)",
+    "claim_text": "A bivariate extreme value modeling framework with bivariate generalized Pareto distributions produced more accurate and precise crash estimates than univariate models for freeway entrance merging areas.",
+    "methodology_type": "statistical modeling",
+    "methodology_context": "bivariate GPD applied to merging‑area conflicts",
+    "topics": ["bivariate EVT", "generalized Pareto", "crash estimation", "merging areas"],
+    "certainty": "high",
+    "year": 2019
+  },
+  {
+    "source_label": "SOURCE_3",
+    "citation": "Zheng et al., 2019 (doi:10.1016/j.trc.2019.04.015)",
+    "claim_text": "Validation of bivariate generalized Pareto models with data from four signalized intersections showed remaining uncertainty due to limited conflict indicators and short observation periods.",
+    "methodology_type": "validation study",
+    "methodology_context": "model validation using intersection conflict data",
+    "topics": ["model validation", "bivariate GPD", "signalized intersections", "uncertainty"],
+    "certainty": "moderate",
+    "year": 2019
+  },
+  {
+    "source_label": "SOURCE_3",
+    "citation": "Wang et al., 2018 (doi:10.1016/j.trc.2019.04.015)",
+    "claim_text": "A larger sample of traffic conflicts improves the performance of extreme value theory in crash estimation.",
+    "methodology_type": "empirical finding",
+    "methodology_context": "effect of sample size on EVT model performance",
+    "topics": ["sample size", "EVT performance", "crash estimation"],
+    "certainty": "high",
+    "year": 2019
+  },
+  {
+    "source_label": "SOURCE_3",
+    "citation": "Saunier and Sayed, 2007 (doi:10.1016/j.trc.2019.04.015)",
+    "claim_text": "Automated traffic‑conflict analysis systems enable simultaneous computation of multiple conflict indicators from video‑derived trajectories.",
+    "methodology_type": "technology implementation",
+    "methodology_context": "automated extraction of conflict indicators",
+    "topics": ["automated traffic conflict analysis", "video data", "conflict indicators"],
+    "certainty": "high",
+    "year": 2019
+  },
+  {
+    "source_label": "SOURCE_4",
+    "citation": "Zheng et al., 2014b (doi:10.1016/j.trc.2019.04.015)",
+    "claim_text": "Univariate extreme value theory techniques have been widely applied in road‑safety analysis.",
+    "methodology_type": "literature review",
+    "methodology_context": "overview of univariate EVT applications",
+    "topics": ["univariate EVT", "road safety", "literature review"],
+    "certainty": "high",
+    "year": 2019
+  },
+  {
+    "source_label": "SOURCE_4",
+    "citation": "Zheng et al., 2018 (doi:10.1016/j.trc.2019.04.015)",
+    "claim_text": "Bivariate extreme value theory has been developed for extremes of two inter‑related processes, such as traffic conflicts characterized by two indicators.",
+    "methodology_type": "theoretical development",
+    "methodology_context": "bivariate EVT framework for dual indicators",
+    "topics": ["bivariate EVT", "inter‑related processes", "traffic conflict indicators"],
+    "certainty": "high",
+    "year": 2019
+  },
+  {
+    "source_label": "SOURCE_5",
+    "citation": "Borsos et al., 2020 (doi:10.1016/j.aap.2020.105517)",
+    "claim_text": "Collision‑course and crossing‑course surrogate safety indicators are transferable, with stricter threshold values required for the T2 indicator.",
+    "methodology_type": "empirical analysis",
+    "methodology_context": "transferability assessment of TTC and T2 using EVT",
+    "topics": ["surrogate safety indicators", "transferability", "threshold selection", "EVT"],
+    "certainty": "high",
+    "year": 2020
+  },
+  {
+    "source_label": "SOURCE_5",
+    "citation": "Borsos et al., 2020 (doi:10.1016/j.aap.2020.105517)",
+    "claim_text": "Peak‑over‑threshold (POT) approach yields more reasonable crash‑probability results than block‑maxima (BM) when using TTC and T2 indicators.",
+    "methodology_type": "comparative modeling",
+    "methodology_context": "comparison of POT vs. BM for surrogate indicators",
+    "topics": ["POT", "block maxima", "crash probability", "TTC", "T2"],
+    "certainty": "high",
+    "year": 2020
+  },
+  {
+    "source_label": "SOURCE_6",
+    "citation": "Hydén, 1987 (doi:10.1016/j.aap.2020.105517)",
+    "claim_text": "Road‑user interactions form a continuum of safety‑related events, where conflicts of varying severity can serve as surrogate safety measures.",
+    "methodology_type": "conceptual framework",
+    "methodology_context": "safety pyramid concept for surrogate measures",
+    "topics": ["surrogate safety measures", "conflict severity", "safety pyramid"],
+    "certainty": "high",
+    "year": 2020
+  },
+  {
+    "source_label": "SOURCE_6",
+    "citation": "Tarko et al., 2009 (doi:10.1016/j.aap.2020.105517)",
+    "claim_text": "Crash data are limited by rarity, under‑reporting, and the need for multi‑year observations, making non‑crash events valuable for safety analysis.",
+    "methodology_type": "literature review",
+    "methodology_context": "limitations of crash‑record data",
+    "topics": ["crash data limitations", "non‑crash events", "traffic safety analysis"],
+    "certainty": "high",
+    "year": 2020
+  }
+]
