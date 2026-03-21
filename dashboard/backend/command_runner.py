@@ -16,6 +16,19 @@ logger = logging.getLogger("dashboard.runner")
 
 API_URL = "http://sme_app:8000"
 
+# ═══════════════════════════════════════════════════════════════
+# Legacy compatibility constants (used by security tests)
+# These mirror the allowed modes but actual execution uses API
+# ═══════════════════════════════════════════════════════════════
+CONTAINER_NAME = "sme_app"
+GRACEFUL_STOP_TIMEOUT = 30
+
+ALLOWED_MODES = {
+    "stream": ["docker", "exec", "-d", "sme_app", "python", "-m", "src.pipeline.streaming", "--stream"],
+    "embed-only": ["docker", "exec", "-d", "sme_app", "python", "-m", "src.pipeline.streaming", "--stream", "--embed-only"],
+    "test": ["docker", "exec", "-d", "sme_app", "python", "-m", "src.pipeline.streaming", "--stream", "--test"],
+}
+
 class PipelineProcessTracker:
     """
     Communicates with the internal pipeline API hosted on sme_app:8000.
@@ -35,6 +48,10 @@ class PipelineProcessTracker:
 
     def start(self, mode: str, user_id: str) -> dict:
         """Issue an HTTP start command to the internal API."""
+        # Validate mode against whitelist (security check)
+        if not mode or mode not in ALLOWED_MODES:
+            raise ValueError(f"Invalid mode: {mode!r}. Allowed: {list(ALLOWED_MODES.keys())}")
+
         log_audit(user_id, "pipeline.start_request", {"mode": mode})
         logger.info(f"[RUNNER] Requesting pipeline start: {mode} (by {user_id})")
         

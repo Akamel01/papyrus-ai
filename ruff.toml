@@ -1,0 +1,42 @@
+# SME Research Assistant - Ruff Configuration
+# Lenient configuration for initial CI setup
+
+[lint]
+# Ignore certain rules that are too strict for initial setup
+ignore = [
+    "I001",   # Import block unsorted - too many to fix initially
+    "UP035",  # Deprecated typing.Dict - many files affected
+    "UP045",  # Use X | None instead of Optional - many files affected
+    "E501",   # Line too long
+    "F401",   # Unused imports (will clean up later)
+    "F841",   # Unused variables
+    "E402",   # Module level import not at top of file
+    "E722",   # Bare except
+    "E731",   # Lambda assignment
+]
+
+# Only enable pyflakes and basic errors initially
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "W",   # pycodestyle warnings
+]
+
+# Exclude test files and tools from strict linting
+exclude = [
+    "tests/",
+    "tools/",
+    "tmp/",
+    "scripts/",
+    ".venv",
+    "venv",
+]
+
+[lint.per-file-ignores]
+"__init__.py" = ["F401"]  # Allow unused imports in __init__.py
+"app/*" = ["E501"]        # Allow long lines in Streamlit app
+"dashboard/*" = ["E501"]  # Allow long lines in dashboard
+
+[format]
+# Disable formatting checks for now
+skip-magic-trailing-comma = true
