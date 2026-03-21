@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 # Use NVIDIA CUDA base image to ensure GPU runtime libraries are present
-FROM nvidia/cuda:12.1.1-runtime-ubuntu22.04
+FROM nvidia/cuda:13.2.0-runtime-ubuntu22.04
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
