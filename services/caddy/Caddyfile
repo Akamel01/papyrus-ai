@@ -43,16 +43,9 @@
     }
 
     # ─── Dashboard UI ───
+    # All dashboard routes including /dashboard/assets/* handled by this
     handle /dashboard* {
-        reverse_proxy dashboard-ui:3000
-    }
-
-    # Dashboard static assets (Vite build output)
-    handle /assets/* {
-        reverse_proxy dashboard-ui:3000
-    }
-
-    handle /vite.svg {
+        uri strip_prefix /dashboard
         reverse_proxy dashboard-ui:3000
     }
 
