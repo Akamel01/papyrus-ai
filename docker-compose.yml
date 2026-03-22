@@ -229,6 +229,23 @@ services:
       start_period: 15s
     restart: unless-stopped
 
+  # ─── Deploy Webhook Service (Auto-deploy on CI success) ───
+  deploy-hook:
+    build: ./services/deploy-hook
+    container_name: sme_deploy_hook
+    logging: *default-logging
+    environment:
+      - DEPLOY_WEBHOOK_SECRET=${DEPLOY_WEBHOOK_SECRET}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - .:/opt/sme:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
   # ─── Cloudflare Tunnel (Public Access via papyrus-ai.net) ───
   cloudflared:
     image: cloudflare/cloudflared:latest
