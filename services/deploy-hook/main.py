@@ -34,10 +34,21 @@ def verify_signature(payload: bytes, signature: str) -> bool:
 
 
 def run_deploy():
-    """Execute deployment commands."""
+    """Execute deployment commands.
+
+    Note: We exclude deploy-hook from restart to avoid killing ourselves mid-deployment.
+    The deploy-hook service will be updated on the next deployment cycle.
+    """
     logger.info(f"Starting deployment at {datetime.now().isoformat()}")
+
+    # Services to update (excluding deploy-hook to avoid self-restart)
+    services = [
+        "app", "auth", "dashboard-backend", "dashboard-ui",
+        "caddy", "cloudflared", "gpu-exporter"
+    ]
+
     try:
-        # Pull new images
+        # Pull new images for all services
         logger.info("Pulling latest images...")
         result = subprocess.run(
             ["docker", "compose", "pull"],
@@ -49,13 +60,13 @@ def run_deploy():
         )
         logger.info(f"Pull output: {result.stdout}")
 
-        # Restart services with new images
-        logger.info("Restarting services...")
+        # Restart services with new images (excluding deploy-hook)
+        logger.info(f"Restarting services: {', '.join(services)}")
         result = subprocess.run(
-            ["docker", "compose", "up", "-d", "--remove-orphans"],
+            ["docker", "compose", "up", "-d", "--no-deps"] + services,
             cwd=DEPLOY_DIR,
             check=True,
-            timeout=120,
+            timeout=180,
             capture_output=True,
             text=True
         )

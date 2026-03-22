@@ -106,7 +106,7 @@ services:
       - ollama
       - auth
     healthcheck:
-      test: [ "CMD-SHELL", "curl -f http://localhost:8501/_stcore/health || exit 1" ]
+      test: [ "CMD-SHELL", "curl -f http://localhost:8501/chat/_stcore/health || exit 1" ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -138,7 +138,7 @@ services:
       - qdrant
       - app
     healthcheck:
-      test: [ "CMD-SHELL", "curl -f http://localhost:8000/health || exit 1" ]
+      test: [ "CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8400/health')\" || exit 1" ]
       interval: 30s
       timeout: 10s
       retries: 3
