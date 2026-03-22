@@ -25,6 +25,7 @@ This folder contains comprehensive technical documentation for the SME Research 
 | Document | Description | Audience |
 |----------|-------------|----------|
 | [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) | Step-by-step deployment instructions | Operators, Non-technical users |
+| [CI_CD_GUIDE.md](CI_CD_GUIDE.md) | CI/CD pipeline and auto-deploy setup | DevOps, Developers |
 | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Common issues and solutions | All users |
 | [INCIDENT_RESPONSE.md](INCIDENT_RESPONSE.md) | Security incident procedures | Security, Operators |
 | [../RELEASE_CHECKLIST.md](../RELEASE_CHECKLIST.md) | Pre-release verification checklist | Developers, QA |
@@ -85,6 +86,13 @@ This folder contains comprehensive technical documentation for the SME Research 
 3. Run `scripts/validate.sh` to verify installation
 4. Check [TROUBLESHOOTING.md](TROUBLESHOOTING.md) if issues arise
 
+### For CI/CD Setup
+
+1. Start with [CI_CD_GUIDE.md](CI_CD_GUIDE.md) for pipeline overview
+2. Configure GitHub Actions secrets
+3. Set up deploy-hook service for auto-deployment
+4. Configure GitHub webhook for workflow_run events
+
 ---
 
 ## System Overview
@@ -133,6 +141,9 @@ This folder contains comprehensive technical documentation for the SME Research 
 | Encryption | Fernet (AES-128) | API key storage |
 | Cache | Redis | Query caching |
 | Tunnel | Cloudflare | HTTPS access |
+| CI/CD | GitHub Actions | Automated testing/deployment |
+| Registry | GitHub Container Registry | Docker image storage |
+| Auto-Deploy | Webhook + deploy-hook | CI-triggered deployment |
 
 ---
 

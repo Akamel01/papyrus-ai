@@ -68,20 +68,36 @@ The SME Research Assistant is a multi-user RAG (Retrieval-Augmented Generation) 
 | **app** | sme_app | 8501, 8502 | Streamlit chat interface |
 | **auth** | sme_auth | 8000 | User authentication, JWT tokens |
 | **dashboard-ui** | sme_dashboard_ui | 3000 | React dashboard frontend |
-| **dashboard-backend** | sme_dashboard_backend | 8400 | FastAPI dashboard API |
+| **dashboard-backend** | sme_dashboard_api | 8400 | FastAPI dashboard API |
 | **qdrant** | sme_qdrant | 6333, 6334 | Vector database |
 | **ollama** | sme_ollama | 11434 | Embedding model, LLM serving |
 | **redis** | sme_redis | 6379 | Query/result caching |
-| **cloudflared** | sme_cloudflared | - | HTTPS tunnel for remote access |
+| **cloudflared** | sme_tunnel | - | HTTPS tunnel for remote access |
+| **deploy-hook** | sme_deploy_hook | 9000 | Webhook-based auto-deployment |
+| **gpu-exporter** | sme_gpu_exporter | - | GPU metrics collection |
 
 ### Service Dependencies
 
 ```
-cloudflared ──► caddy ──┬──► auth
-                        ├──► app ──┬──► qdrant
-                        │          ├──► ollama
-                        │          └──► redis
-                        └──► dashboard-backend ──► qdrant
+cloudflared ──┬──► caddy ──┬──► auth
+              │            ├──► app ──┬──► qdrant
+              │            │          ├──► ollama
+              │            │          └──► redis
+              │            └──► dashboard-backend ──► qdrant
+              │
+              └──► deploy-hook ──► docker.sock (for compose commands)
+```
+
+### CI/CD Flow
+
+```
+GitHub Actions ──► Build Images ──► Push to GHCR
+                                        │
+                                        ▼
+                        workflow_run webhook triggered
+                                        │
+                                        ▼
+cloudflared ──► deploy-hook:9000 ──► docker compose pull && up
 ```
 
 ---
@@ -131,6 +147,10 @@ SME/
 │   │   └── Dockerfile
 │   ├── caddy/
 │   │   └── Caddyfile           # Reverse proxy config
+│   ├── deploy-hook/             # Auto-deploy webhook
+│   │   ├── main.py             # FastAPI webhook handler
+│   │   ├── Dockerfile          # Container with Docker CLI
+│   │   └── requirements.txt
 │   ├── dashboard-backend/
 │   │   └── main.py             # Dashboard API
 │   └── dashboard-ui/
@@ -246,6 +266,50 @@ PDF → Parse (pymupdf4llm) → Chunk (800 tokens) → Embed (Qwen3) → Store (
 - `OllamaClient` - LLM API wrapper
 - `PromptBuilder` - Context-aware prompt construction
 - `CitationFormatter` - APA citation generation
+
+### 5. Deploy Hook Service (`services/deploy-hook/`)
+
+**Purpose:** Webhook-based auto-deployment triggered by GitHub CI success
+
+**Architecture:**
+```
+GitHub workflow_run webhook
+        │
+        ▼
+https://papyrus-ai.net/deploy-webhook/webhook
+        │
+        ▼
+Cloudflare Tunnel → deploy-hook:9000
+        │
+        ▼
+HMAC-SHA256 Signature Verification
+        │
+        ▼
+Background: docker compose pull && up -d
+```
+
+**Key Features:**
+- HMAC-SHA256 signature verification (GitHub webhook security)
+- Only deploys on CI success (filters event type, action, conclusion)
+- Async background deployment (prevents webhook timeout)
+- Health check endpoint at `/deploy-webhook/health`
+
+**Endpoints:**
+- `POST /deploy-webhook/webhook` - Receive GitHub webhook
+- `GET /deploy-webhook/health` - Health check
+- `GET /deploy-webhook/` - Service info
+
+**Configuration:**
+```yaml
+# docker-compose.yml
+deploy-hook:
+  build: ./services/deploy-hook
+  environment:
+    - DEPLOY_WEBHOOK_SECRET=${DEPLOY_WEBHOOK_SECRET}
+  volumes:
+    - /var/run/docker.sock:/var/run/docker.sock
+    - .:/opt/sme:ro
+```
 
 ---
 

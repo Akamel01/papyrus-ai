@@ -655,6 +655,41 @@ docker compose down -v
 
 ---
 
+## CI/CD and Auto-Deploy
+
+The system includes a fully automated CI/CD pipeline with webhook-based auto-deployment.
+
+### How Auto-Deploy Works
+
+```
+GitHub Push → CI Pipeline → Build Images → workflow_run Webhook
+                                                    │
+                                                    ▼
+              deploy-hook service ← Cloudflare Tunnel
+                     │
+                     ▼
+         docker compose pull && docker compose up -d
+```
+
+### Enabling Auto-Deploy
+
+1. **Start the deploy-hook service** (included in docker-compose.yml):
+   ```bash
+   docker compose up -d deploy-hook
+   ```
+
+2. **Verify webhook is accessible:**
+   ```bash
+   curl https://papyrus-ai.net/deploy-webhook/health
+   ```
+
+3. **GitHub webhook is pre-configured** at:
+   https://github.com/Akamel01/papyrus-ai/settings/hooks
+
+For detailed CI/CD documentation, see [CI_CD_GUIDE.md](CI_CD_GUIDE.md).
+
+---
+
 ## Next Steps
 
 After successful deployment:
@@ -662,13 +697,15 @@ After successful deployment:
 1. **Add Papers:** Follow the [User Guide](../USER_GUIDE.md) to add papers to your library
 2. **Configure Keywords:** Set up research keywords for automatic paper discovery
 3. **Invite Users:** Share the access URL with your team members
-4. **Review Troubleshooting:** If you encounter issues, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
+4. **Set Up CI/CD:** Review [CI_CD_GUIDE.md](CI_CD_GUIDE.md) for automated deployments
+5. **Review Troubleshooting:** If you encounter issues, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
 
 ---
 
 ## Related Documentation
 
 - [USER_GUIDE.md](../USER_GUIDE.md) - How to use the system
+- [CI_CD_GUIDE.md](CI_CD_GUIDE.md) - CI/CD pipeline and auto-deploy
 - [TROUBLESHOOTING.md](TROUBLESHOOTING.md) - Common issues and solutions
 - [CONFIGURATION.md](CONFIGURATION.md) - Detailed configuration reference
 - [ARCHITECTURE.md](ARCHITECTURE.md) - System architecture overview
