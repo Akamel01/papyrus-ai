@@ -18,7 +18,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    restart: unless-stopped
+    restart: always
 
   qdrant:
     image: qdrant/qdrant:v1.12.6
@@ -44,7 +44,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    restart: unless-stopped
+    restart: always
 
   ollama:
     image: ollama/ollama:0.18.0
@@ -72,7 +72,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-    restart: unless-stopped
+    restart: always
 
   app:
     build: .
@@ -101,17 +101,21 @@ services:
               count: 1
               capabilities: [ gpu ]
     depends_on:
-      - qdrant
-      - redis
-      - ollama
-      - auth
+      qdrant:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+      auth:
+        condition: service_healthy
     healthcheck:
       test: [ "CMD-SHELL", "curl -f http://localhost:8501/chat/_stcore/health || exit 1" ]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 60s
-    restart: unless-stopped
+    restart: always
 
   dashboard-backend:
     build: ./dashboard/backend
@@ -135,15 +139,17 @@ services:
           cpus: "2"
           memory: 2g
     depends_on:
-      - qdrant
-      - app
+      qdrant:
+        condition: service_healthy
+      app:
+        condition: service_healthy
     healthcheck:
       test: [ "CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8400/health')\" || exit 1" ]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 30s
-    restart: unless-stopped
+    restart: always
 
   dashboard-ui:
     build: ./dashboard/frontend
@@ -157,14 +163,15 @@ services:
           cpus: "1"
           memory: 512m
     depends_on:
-      - dashboard-backend
+      dashboard-backend:
+        condition: service_healthy
     healthcheck:
-      test: [ "CMD-SHELL", "curl -f http://localhost:3000/ || exit 1" ]
+      test: [ "CMD-SHELL", "curl -sf http://localhost:3000/ > /dev/null || exit 1" ]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 30s
-    restart: unless-stopped
+    restart: always
 
   gpu-exporter:
     build: ./dashboard/gpu_exporter
@@ -183,7 +190,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
-    restart: unless-stopped
+    restart: always
 
   # ─── Multi-User Auth Service ───
   auth:
@@ -203,7 +210,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-    restart: unless-stopped
+    restart: always
 
   # ─── Reverse Proxy (Internal Routing) ───
   caddy:
@@ -217,17 +224,21 @@ services:
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
-      - auth
-      - app
-      - dashboard-ui
-      - dashboard-backend
+      auth:
+        condition: service_healthy
+      app:
+        condition: service_healthy
+      dashboard-ui:
+        condition: service_healthy
+      dashboard-backend:
+        condition: service_healthy
     healthcheck:
       test: [ "CMD-SHELL", "wget -q --spider http://localhost:80/ || exit 1" ]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 15s
-    restart: unless-stopped
+    restart: always  # Always restart, even after Docker daemon restart
 
   # ─── Deploy Webhook Service (Auto-deploy on CI success) ───
   deploy-hook:
@@ -240,11 +251,12 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - .:/opt/sme:ro
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/health"]
+      test: [ "CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:9000/health')\" || exit 1" ]
       interval: 30s
       timeout: 10s
       retries: 3
-    restart: unless-stopped
+      start_period: 10s
+    restart: always  # Always restart, even after Docker daemon restart
 
   # ─── Cloudflare Tunnel (Public Access via papyrus-ai.net) ───
   cloudflared:
@@ -258,8 +270,15 @@ services:
       - ./config/cloudflared-credentials.json:/etc/cloudflared/credentials.json:ro
       - ./config/cloudflared-config.yml:/etc/cloudflared/config.yml:ro
     depends_on:
-      - caddy
-    restart: unless-stopped
+      caddy:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD-SHELL", "pgrep cloudflared || exit 1" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    restart: always  # Always restart, even after Docker daemon restart
 
 volumes:
   redis_data:
