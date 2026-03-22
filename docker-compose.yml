@@ -272,12 +272,8 @@ services:
     depends_on:
       caddy:
         condition: service_healthy
-    healthcheck:
-      test: [ "CMD-SHELL", "pgrep cloudflared || exit 1" ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 15s
+    # Note: No healthcheck - cloudflared is a distroless image with no shell
+    # Docker monitors the process directly via restart policy
     restart: always  # Always restart, even after Docker daemon restart
 
 volumes:
