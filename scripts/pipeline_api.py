@@ -18,7 +18,7 @@ app = FastAPI(title="SME Internal Pipeline API")
 logger = logging.getLogger("pipeline_api")
 logging.basicConfig(level=logging.INFO)
 
-STATE_FILE = os.getenv("RUNNER_STATE_FILE", "/data/pipeline_state_internal.json")
+STATE_FILE = os.getenv("RUNNER_STATE_FILE", "/app/data/pipeline_state_internal.json")
 
 # --- Whitelisted commands ---
 ALLOWED_MODES = {
@@ -103,7 +103,9 @@ class PipelineProcessTracker:
             logger.info(f"Starting: {' '.join(cmd)} (by {user_id})")
 
             # Start process detached — capture stderr for diagnostics
-            log_file = open("/data/pipeline_stdout.log", "a")
+            log_path = os.getenv("RUNNER_LOG_FILE", "/app/data/pipeline_stdout.log")
+            os.makedirs(os.path.dirname(log_path), exist_ok=True)
+            log_file = open(log_path, "a")
             proc = subprocess.Popen(
                 cmd,
                 stdout=log_file,

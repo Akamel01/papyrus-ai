@@ -27,8 +27,23 @@ class DatabaseManager:
         """Initialize database schema if it doesn't exist."""
         # Ensure parent dir exists
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        
+
         with self.get_connection() as conn:
+            # Pre-schema migration: Add user_id column if table exists but column doesn't
+            # This must run BEFORE SCHEMA_SQL which creates indexes on user_id
+            try:
+                existing_tables = [r[0] for r in conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'"
+                ).fetchall()]
+                if 'papers' in existing_tables:
+                    columns = [r[1] for r in conn.execute("PRAGMA table_info(papers)").fetchall()]
+                    if 'user_id' not in columns:
+                        logger.info("Pre-schema migration: Adding 'user_id' column to papers table")
+                        conn.execute("ALTER TABLE papers ADD COLUMN user_id TEXT")
+                        conn.commit()
+            except Exception as e:
+                logger.warning(f"Pre-schema migration check failed (non-fatal): {e}")
+
             conn.executescript(SCHEMA_SQL)
             
     @contextmanager

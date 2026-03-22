@@ -44,6 +44,13 @@ class PaperStore:
                     conn.execute("ALTER TABLE papers ADD COLUMN import_source TEXT DEFAULT 'api'")
                 # Ensure index exists for fast checksum lookups
                 conn.execute("CREATE INDEX IF NOT EXISTS idx_papers_file_checksum ON papers(file_checksum)")
+                # Multi-user feature column
+                if 'user_id' not in columns:
+                    logger.info("Migrating schema: Adding 'user_id' column to papers table")
+                    conn.execute("ALTER TABLE papers ADD COLUMN user_id TEXT")
+                # Ensure multi-user indexes exist
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_papers_user_id ON papers(user_id)")
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_papers_user_status ON papers(user_id, status)")
         except Exception as e:
             logger.error(f"Schema migration failed: {e}")
 
