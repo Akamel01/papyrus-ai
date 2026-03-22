@@ -8,9 +8,10 @@ import hashlib
 import subprocess
 import logging
 from datetime import datetime
-from fastapi import FastAPI, Request, HTTPException, BackgroundTasks
+from fastapi import FastAPI, Request, HTTPException, BackgroundTasks, APIRouter
 
 app = FastAPI(title="Deploy Hook")
+router = APIRouter()
 logger = logging.getLogger("deploy-hook")
 logging.basicConfig(
     level=logging.INFO,
@@ -73,7 +74,7 @@ def run_deploy():
         return False
 
 
-@app.post("/webhook")
+@router.post("/webhook")
 async def handle_webhook(request: Request, background_tasks: BackgroundTasks):
     """Handle GitHub webhook events."""
     payload = await request.body()
@@ -108,7 +109,7 @@ async def handle_webhook(request: Request, background_tasks: BackgroundTasks):
     return {"status": "deploying", "workflow": workflow_name}
 
 
-@app.get("/health")
+@router.get("/health")
 async def health():
     """Health check endpoint."""
     return {
@@ -118,7 +119,12 @@ async def health():
     }
 
 
-@app.get("/")
+@router.get("/")
 async def root():
     """Root endpoint."""
     return {"service": "deploy-hook", "version": "1.0.0"}
+
+
+# Mount router at both root and /deploy-webhook for flexibility
+app.include_router(router)
+app.include_router(router, prefix="/deploy-webhook")
