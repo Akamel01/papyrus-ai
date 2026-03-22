@@ -59,6 +59,15 @@
         reverse_proxy dashboard-ui:3000
     }
 
+    # Dashboard static assets (Vite build output)
+    handle /assets/* {
+        reverse_proxy dashboard-ui:3000
+    }
+
+    handle /vite.svg {
+        reverse_proxy dashboard-ui:3000
+    }
+
     # ─── Dashboard API ───
     handle /api/* {
         reverse_proxy dashboard-backend:8400
