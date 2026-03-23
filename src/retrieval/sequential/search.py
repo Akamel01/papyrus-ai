@@ -37,7 +37,8 @@ class SearchMixin:
         context_builder: Optional[Any] = None,
         max_per_doi: Optional[int] = None,
         search_params: Optional[Dict[str, Any]] = None,
-        user_id: Optional[str] = None  # Multi-user isolation
+        user_id: Optional[str] = None,  # Multi-user isolation
+        knowledge_source: str = "both"  # "shared_only", "user_only", or "both"
     ) -> Tuple[str, List, List[str], Dict[str, int]]:
         """
         Perform a single search round with query expansion.
@@ -173,7 +174,8 @@ class SearchMixin:
                     use_bm25=preset.get("use_bm25", True),
                     use_semantic=preset.get("use_semantic", True),
                     search_params=search_params,
-                    user_id=user_id  # Multi-user isolation
+                    user_id=user_id,  # Multi-user isolation
+                    knowledge_source=knowledge_source  # Knowledge source filter
                 )
                 all_results.extend(primary_results)
                 gate.context["hits"] = len(primary_results)

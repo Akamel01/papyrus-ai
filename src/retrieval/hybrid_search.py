@@ -55,7 +55,8 @@ class HybridSearch:
         use_bm25: bool = True,
         use_semantic: bool = True,
         search_params: Optional[Dict[str, Any]] = None,
-        user_id: Optional[str] = None
+        user_id: Optional[str] = None,
+        knowledge_source: str = "both"
     ) -> List[RetrievalResult]:
         """
         Perform hybrid search.
@@ -67,8 +68,11 @@ class HybridSearch:
             use_bm25: Whether to use BM25
             use_semantic: Whether to use semantic search
             search_params: Optional dictionary of search parameters for vector store (e.g. ef_search)
-            user_id: Optional user ID for multi-user isolation. If provided, only returns
-                     results belonging to this user.
+            user_id: Optional user ID for multi-user isolation.
+            knowledge_source: Which knowledge sources to search:
+                - "shared_only": Only shared KB (user_id is NULL)
+                - "user_only": Only user's documents (requires user_id)
+                - "both": User's docs + shared KB (default)
 
         Returns:
             List of RetrievalResult objects
@@ -76,11 +80,26 @@ class HybridSearch:
         if not query or not query.strip():
             return []
 
-        # Multi-user isolation: inject user_id into filters
-        if user_id:
-            filters = filters.copy() if filters else {}
-            filters["user_id"] = user_id
-            logger.debug(f"[SEARCH] User isolation active: user_id={user_id}")
+        # Build filters based on knowledge_source
+        filters = filters.copy() if filters else {}
+
+        if knowledge_source == "shared_only":
+            # Only shared KB (user_id is NULL/not set)
+            filters["user_id_is_null"] = True
+            logger.debug("[SEARCH] Knowledge source: shared_only")
+        elif knowledge_source == "user_only":
+            # Only user's documents
+            if user_id:
+                filters["user_id"] = user_id
+                logger.debug(f"[SEARCH] Knowledge source: user_only, user_id={user_id}")
+            else:
+                logger.warning("[SEARCH] user_only mode but no user_id provided")
+        elif knowledge_source == "both":
+            # User's docs + shared KB (user_id matches OR user_id is NULL)
+            if user_id:
+                filters["user_id_or_null"] = user_id
+                logger.debug(f"[SEARCH] Knowledge source: both, user_id={user_id}")
+            # If no user_id, just search everything (legacy behavior)
         
         results_map: Dict[str, Dict] = {}  # chunk_id -> {chunk, scores}
         
@@ -131,8 +150,10 @@ class HybridSearch:
             try:
                 # M13 FIX: Use caller's top_k directly
                 fetch_k = top_k
-                logger.debug(f"Run BM25 Search (fetch_k={fetch_k}, user_id={user_id})...")
-                bm25_results = self.bm25_index.search(query, top_k=fetch_k, user_id=user_id)
+                logger.debug(f"Run BM25 Search (fetch_k={fetch_k}, user_id={user_id}, knowledge_source={knowledge_source})...")
+                bm25_results = self.bm25_index.search(
+                    query, top_k=fetch_k, user_id=user_id, knowledge_source=knowledge_source
+                )
                 logger.debug(f"BM25 Search Result Count: {len(bm25_results)}")
                 
                 for rank, result in enumerate(bm25_results):

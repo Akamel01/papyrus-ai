@@ -56,43 +56,47 @@ async def websocket_endpoint(ws: WebSocket):
 
 
 async def _stream_logs(ws: WebSocket):
-    """Tail the pipeline log file and stream to this client."""
+    """Stream logs from the internal pipeline API (sme_app:8000/logs)."""
+    import httpx
+
+    API_URL = "http://sme_app:8000"
+
     try:
-        proc = await asyncio.create_subprocess_exec(
-            "docker", "exec", "sme_app", "tail", "-f", "-n", "100",
-            "/app/data/autonomous_update.log",
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
+        async with httpx.AsyncClient(timeout=None) as client:
+            async with client.stream("GET", f"{API_URL}/logs?tail=100") as response:
+                async for line in response.aiter_lines():
+                    # SSE format: "data: <log line>"
+                    if not line.startswith("data: "):
+                        continue
 
-        async for line_bytes in proc.stdout:
-            line = line_bytes.decode("utf-8", errors="replace").strip()
-            if not line:
-                continue
+                    log_line = line[6:]  # Strip "data: " prefix
+                    if not log_line or log_line.startswith("[LOG"):
+                        # Skip error messages from the API
+                        continue
 
-            # Check if client paused
-            if getattr(ws, "_log_paused", False):
-                continue
+                    # Check if client paused
+                    if getattr(ws, "_log_paused", False):
+                        continue
 
-            parsed = _parse_log_line(line)
+                    parsed = _parse_log_line(log_line)
 
-            # Apply client filters
-            log_filter = getattr(ws, "_log_filter", {})
-            if log_filter:
-                levels = log_filter.get("levels", [])
-                if levels and parsed.get("level") not in levels:
-                    continue
-                stages = log_filter.get("stages", [])
-                if stages and parsed.get("stage") not in stages:
-                    continue
-                search = log_filter.get("search", "")
-                if search and search.lower() not in line.lower():
-                    continue
+                    # Apply client filters
+                    log_filter = getattr(ws, "_log_filter", {})
+                    if log_filter:
+                        levels = log_filter.get("levels", [])
+                        if levels and parsed.get("level") not in levels:
+                            continue
+                        stages = log_filter.get("stages", [])
+                        if stages and parsed.get("stage") not in stages:
+                            continue
+                        search = log_filter.get("search", "")
+                        if search and search.lower() not in log_line.lower():
+                            continue
 
-            try:
-                await ws.send_json({"type": "log.line", "payload": parsed})
-            except Exception:
-                break
+                    try:
+                        await ws.send_json({"type": "log.line", "payload": parsed})
+                    except Exception:
+                        break
 
     except asyncio.CancelledError:
         pass

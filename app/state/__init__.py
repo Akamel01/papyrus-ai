@@ -15,11 +15,15 @@ class StateDefaults:
     """Default values for all session state keys."""
     # Authentication
     authenticated: bool = False
-    
+
     # Chat
     messages: List[Dict] = field(default_factory=list)
     current_query: str = ""
-    
+
+    # Quick Uploads (session-only temporary documents)
+    # Format: [{"filename": str, "content": str, "uploaded_at": float, "file_size": int}]
+    quick_uploads: List[Dict] = field(default_factory=list)
+
     # Processing
     is_processing: bool = False
     stop_requested: bool = False

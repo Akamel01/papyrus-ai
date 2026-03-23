@@ -24,11 +24,17 @@ export default function RunControls() {
                 setLogs(prev => [...prev.slice(-499), { ...line, _new: true } as LogLine & { _new?: boolean }])
             }),
             dashboardWS.on('run.status', (p: unknown) => setStatus(p as typeof status)),
+            // Real-time pipeline state change notifications (no polling needed)
+            dashboardWS.on('pipeline.state_change', (p: unknown) => {
+                const state = p as { running: boolean; pid?: number; mode?: string; uptime_sec?: number }
+                setStatus(state)
+            }),
         ]
+        // Reduced polling interval since we have real-time state updates
         const poll = setInterval(() => {
             run.status().then(setStatus).catch(() => { })
             dlq.list().then(setDlqItems).catch(() => { })
-        }, 5000)
+        }, 10000)
 
         return () => { unsubs.forEach(fn => fn()); clearInterval(poll) }
     }, [])

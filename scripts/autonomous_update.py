@@ -21,6 +21,7 @@ import uuid
 import time
 from pathlib import Path
 from threading import Event, Thread
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -105,6 +106,45 @@ def _cleanup_embedded_pdfs(paper_store: PaperStore, papers_dir: Path):
             logger.debug(f"[CLEANUP] Error checking {pdf_file.name}: {e}")
 
     logger.info(f"[CLEANUP] Startup sweep: removed {cleaned} orphaned PDFs, {errors} errors")
+
+
+# Qdrant scroll timeout configuration
+QDRANT_SCROLL_TIMEOUT = 30  # seconds
+
+
+def _scroll_with_timeout(client, collection_name: str, limit: int, offset,
+                          scroll_filter, timeout_sec: int = QDRANT_SCROLL_TIMEOUT):
+    """
+    Wrapper for Qdrant scroll() with timeout to prevent indefinite hangs.
+
+    Args:
+        client: Qdrant client instance
+        collection_name: Name of the collection to scroll
+        limit: Max points per scroll
+        offset: Scroll offset (None for first call)
+        scroll_filter: Qdrant filter to apply
+        timeout_sec: Timeout in seconds (default 30s)
+
+    Returns:
+        Tuple of (results, next_offset) from scroll
+
+    Raises:
+        TimeoutError: If scroll takes longer than timeout_sec
+    """
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(
+            client.scroll,
+            collection_name=collection_name,
+            limit=limit,
+            offset=offset,
+            scroll_filter=scroll_filter,
+            with_payload=True,
+            with_vectors=False,
+        )
+        try:
+            return future.result(timeout=timeout_sec)
+        except FuturesTimeoutError:
+            raise TimeoutError(f"Qdrant scroll timed out after {timeout_sec}s")
 
 
 def _discovery_worker(discoverer: PaperDiscoverer, paper_store: PaperStore, config: dict, stop_event: Event):
@@ -229,19 +269,22 @@ def _resume_bm25_indexing(paper_store: PaperStore, bm25_index, vector_store) -> 
                 offset = None
 
                 while True:
-                    results, next_offset = client.scroll(
-                        collection_name=collection,
-                        limit=100,
-                        offset=offset,
-                        scroll_filter=models.Filter(
-                            must=[models.FieldCondition(
-                                key="doi",
-                                match=models.MatchValue(value=doi_value)
-                            )]
-                        ),
-                        with_payload=True,
-                        with_vectors=False,
-                    )
+                    try:
+                        results, next_offset = _scroll_with_timeout(
+                            client=client,
+                            collection_name=collection,
+                            limit=100,
+                            offset=offset,
+                            scroll_filter=models.Filter(
+                                must=[models.FieldCondition(
+                                    key="doi",
+                                    match=models.MatchValue(value=doi_value)
+                                )]
+                            ),
+                        )
+                    except TimeoutError as te:
+                        logger.warning(f"[BM25-RESUME] Scroll timeout for {paper_id}: {te}")
+                        break
 
                     if not results:
                         break
@@ -365,19 +408,22 @@ def _resume_bm25_async(
                     offset = None
 
                     while True:
-                        results, next_offset = client.scroll(
-                            collection_name=collection,
-                            limit=100,
-                            offset=offset,
-                            scroll_filter=models.Filter(
-                                must=[models.FieldCondition(
-                                    key="doi",
-                                    match=models.MatchValue(value=doi_value)
-                                )]
-                            ),
-                            with_payload=True,
-                            with_vectors=False,
-                        )
+                        try:
+                            results, next_offset = _scroll_with_timeout(
+                                client=client,
+                                collection_name=collection,
+                                limit=100,
+                                offset=offset,
+                                scroll_filter=models.Filter(
+                                    must=[models.FieldCondition(
+                                        key="doi",
+                                        match=models.MatchValue(value=doi_value)
+                                    )]
+                                ),
+                            )
+                        except TimeoutError as te:
+                            logger.warning(f"[BM25-RESUME-ASYNC] Scroll timeout for {paper_id}: {te}")
+                            break
 
                         if not results:
                             break

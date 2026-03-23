@@ -10,6 +10,7 @@ import streamlit as st
 from app.components.theme import GOLD, TEXT_GREY, MUTED_TEXT
 from app.components.sidebar_styles import SIDEBAR_CSS, LET_AI_DECIDE_CSS, get_disabled_slider_css
 from app.components.sidebar_config import SidebarConfig
+from app.components.quick_upload import render_quick_upload
 from app.auth_helper import get_current_user, logout
 
 
@@ -101,6 +102,35 @@ def render_sidebar() -> SidebarConfig:
             ''', unsafe_allow_html=True)
 
             render_divider()
+
+        # === QUICK UPLOAD SECTION ===
+        render_quick_upload()
+        render_divider()
+
+        # === KNOWLEDGE BASE SECTION ===
+        st.markdown(f'<div style="color: {TEXT_GREY}; font-weight: 900; font-size: 12px; letter-spacing: 0.05em; margin-bottom: 8px;">KNOWLEDGE BASE</div>', unsafe_allow_html=True)
+
+        knowledge_source_options = {
+            "both": "Both (My Docs + Shared KB)",
+            "shared_only": "Shared KB Only",
+            "user_only": "My Documents Only"
+        }
+
+        knowledge_source = st.radio(
+            "Search scope",
+            options=list(knowledge_source_options.keys()),
+            format_func=lambda x: knowledge_source_options[x],
+            index=0,
+            key="knowledge_source",
+            label_visibility="collapsed"
+        )
+
+        # Show Quick Upload count if any
+        quick_upload_count = len(st.session_state.get("quick_uploads", []))
+        if quick_upload_count > 0:
+            st.caption(f"+ {quick_upload_count} Quick Upload(s) always included")
+
+        render_divider()
 
         # === 1. RESEARCH CONTEXT ===
         # Inject CSS and Header together to avoid extra spacing/container overhead
@@ -255,5 +285,6 @@ def render_sidebar() -> SidebarConfig:
         show_sources=show_sources,
         show_confidence=show_confidence,
         citation_density=citation_density,
-        auto_citation_density=auto_citation_density
+        auto_citation_density=auto_citation_density,
+        knowledge_source=knowledge_source
     )

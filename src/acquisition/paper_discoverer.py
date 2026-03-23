@@ -53,11 +53,18 @@ class DiscoveredPaper:
     # Manual Import tracking
     file_checksum: Optional[str] = None
     import_source: str = "api"  # api, manual_import
-    
+    # Multi-user support
+    user_id: Optional[str] = None  # None = shared KB, string = user's personal document
+
     @property
     def unique_id(self) -> str:
         """Get unique identifier for deduplication."""
-        # Prioritize manual checksum if it's a manual import
+        # User documents: prefix with user_id for isolation
+        if self.user_id:
+            if self.file_checksum:
+                return f"user:{self.user_id}:manual:{self.file_checksum}"
+            return f"user:{self.user_id}:title:{self._normalize_title(self.title)}"
+        # Prioritize manual checksum if it's a manual import (shared KB)
         if self.file_checksum and self.import_source == "manual_import":
             return f"manual:{self.file_checksum}"
         if self.doi:
@@ -92,6 +99,7 @@ class DiscoveredPaper:
             "pdf_path": self.pdf_path,
             "chunk_file": self.chunk_file,
             "metadata": self.metadata,
+            "user_id": self.user_id,
         }
 
     def merge(self, other: 'DiscoveredPaper'):

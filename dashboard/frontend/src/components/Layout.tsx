@@ -1,6 +1,6 @@
 import { NavLink, useLocation } from 'react-router-dom'
 import {
-    LayoutDashboard, Settings, Play, Map, BarChart3, ShieldCheck, LogOut
+    LayoutDashboard, Settings, Play, Map, BarChart3, ShieldCheck, LogOut, FileText
 } from 'lucide-react'
 import { clearTokens } from '../lib/api'
 
@@ -10,6 +10,7 @@ const navItems = [
     { to: '/runs', icon: Play, label: 'Runs' },
     { to: '/coverage', icon: Map, label: 'Coverage' },
     { to: '/metrics', icon: BarChart3, label: 'Metrics' },
+    { to: '/documents', icon: FileText, label: 'My Documents' },
     { to: '/admin', icon: ShieldCheck, label: 'Admin' },
 ]
 

@@ -80,7 +80,8 @@ class PaperStore:
                 metadata=json.loads(row['metadata']) if row['metadata'] else {},
                 apa_reference=row['apa_reference'] if 'apa_reference' in row.keys() else None,
                 file_checksum=row['file_checksum'] if 'file_checksum' in row.keys() else None,
-                import_source=row['import_source'] if 'import_source' in row.keys() else 'api'
+                import_source=row['import_source'] if 'import_source' in row.keys() else 'api',
+                user_id=row['user_id'] if 'user_id' in row.keys() else None
             )
         except Exception as e:
             logger.error(f"Error parsing row {row.get('unique_id', 'UNKNOWN')}: {e}")
@@ -134,8 +135,8 @@ class PaperStore:
         INSERT INTO papers (
             unique_id, doi, arxiv_id, openalex_id, title, authors, year,
             venue, abstract, pdf_url, status, pdf_path, citation_count, source, metadata, apa_reference,
-            file_checksum, import_source
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            file_checksum, import_source, user_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
         try:
             self._execute_with_retry(
@@ -158,7 +159,8 @@ class PaperStore:
                     json.dumps(paper.metadata) if paper.metadata else None,
                     paper.apa_reference,
                     paper.file_checksum,
-                    paper.import_source
+                    paper.import_source,
+                    paper.user_id
                 ),
                 f"add paper {paper.unique_id}"
             )
@@ -176,16 +178,16 @@ class PaperStore:
         """
         if not papers:
             return 0
-            
+
         # Use INSERT OR IGNORE to handle duplicates gracefully in batch
         query = """
         INSERT OR IGNORE INTO papers (
             unique_id, doi, arxiv_id, openalex_id, title, authors, year,
             venue, abstract, pdf_url, status, pdf_path, citation_count, source, metadata, apa_reference,
-            file_checksum, import_source
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            file_checksum, import_source, user_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
-        
+
         data = [
             (
                 p.unique_id,
@@ -205,7 +207,8 @@ class PaperStore:
                 json.dumps(p.metadata) if p.metadata else None,
                 p.apa_reference,
                 p.file_checksum,
-                p.import_source
+                p.import_source,
+                p.user_id
             )
             for p in papers
         ]
@@ -479,4 +482,152 @@ class PaperStore:
         except Exception as e:
             logger.error(f"Failed to count BM25 indexed papers: {e}")
             return 0
+
+    # ─── User Document Methods ───────────────────────────────────────────────
+
+    def get_user_papers(self, user_id: str, limit: int = 100) -> List[Dict[str, Any]]:
+        """
+        Get all documents uploaded by a specific user.
+
+        Args:
+            user_id: The user's ID
+            limit: Maximum number of documents to return
+
+        Returns:
+            List of document metadata dicts with status info
+        """
+        query = """
+        SELECT unique_id, title, status, pdf_path, created_at, updated_at,
+               error_message, file_checksum
+        FROM papers
+        WHERE user_id = ?
+        ORDER BY created_at DESC
+        LIMIT ?
+        """
+        try:
+            with self.db.get_connection() as conn:
+                rows = conn.execute(query, (user_id, limit)).fetchall()
+                return [
+                    {
+                        "document_id": row[0],
+                        "title": row[1] or "Untitled",
+                        "status": row[2],
+                        "pdf_path": row[3],
+                        "created_at": row[4],
+                        "updated_at": row[5],
+                        "error_message": row[6],
+                        "file_checksum": row[7],
+                    }
+                    for row in rows
+                ]
+        except Exception as e:
+            logger.error(f"Failed to get user papers for {user_id}: {e}")
+            return []
+
+    def get_pending_user_papers(self, user_id: str) -> List[str]:
+        """
+        Get unique_ids of pending (not yet processed) user documents.
+
+        Args:
+            user_id: The user's ID
+
+        Returns:
+            List of unique_ids with 'discovered' or 'downloaded' status
+        """
+        query = """
+        SELECT unique_id FROM papers
+        WHERE user_id = ? AND status IN ('discovered', 'downloaded')
+        ORDER BY created_at ASC
+        """
+        try:
+            with self.db.get_connection() as conn:
+                rows = conn.execute(query, (user_id,)).fetchall()
+                return [r[0] for r in rows]
+        except Exception as e:
+            logger.error(f"Failed to get pending papers for {user_id}: {e}")
+            return []
+
+    def delete_user_paper(self, unique_id: str, user_id: str) -> bool:
+        """
+        Delete a user's document with ownership verification.
+
+        Args:
+            unique_id: The document's unique_id
+            user_id: The user's ID (for ownership check)
+
+        Returns:
+            True if deleted, False if not found or not owned by user
+        """
+        query = "DELETE FROM papers WHERE unique_id = ? AND user_id = ?"
+        try:
+            count = self._execute_with_retry(
+                query,
+                (unique_id, user_id),
+                f"delete user paper {unique_id}"
+            )
+            if count > 0:
+                logger.info(f"Deleted user paper {unique_id} for user {user_id}")
+                return True
+            else:
+                logger.warning(f"Paper {unique_id} not found or not owned by {user_id}")
+                return False
+        except Exception as e:
+            logger.error(f"Failed to delete user paper {unique_id}: {e}")
+            return False
+
+    def get_user_paper(self, unique_id: str, user_id: str) -> Optional[DiscoveredPaper]:
+        """
+        Get a specific user document with ownership verification.
+
+        Args:
+            unique_id: The document's unique_id
+            user_id: The user's ID (for ownership check)
+
+        Returns:
+            DiscoveredPaper if found and owned by user, None otherwise
+        """
+        query = "SELECT * FROM papers WHERE unique_id = ? AND user_id = ?"
+        with self.db.get_connection() as conn:
+            row = conn.execute(query, (unique_id, user_id)).fetchone()
+            if row:
+                return self._row_to_paper(row)
+        return None
+
+    def count_user_papers(self, user_id: str) -> Dict[str, int]:
+        """
+        Get document count breakdown by status for a user.
+
+        Args:
+            user_id: The user's ID
+
+        Returns:
+            Dict with status counts: {total, pending, processing, ready, failed}
+        """
+        query = """
+        SELECT status, COUNT(*) as count
+        FROM papers
+        WHERE user_id = ?
+        GROUP BY status
+        """
+        try:
+            with self.db.get_connection() as conn:
+                rows = conn.execute(query, (user_id,)).fetchall()
+
+            counts = {"total": 0, "pending": 0, "processing": 0, "ready": 0, "failed": 0}
+            for row in rows:
+                status, count = row[0], row[1]
+                counts["total"] += count
+                if status in ("discovered", "downloaded"):
+                    counts["pending"] += count
+                elif status in ("chunked", "chunking"):
+                    counts["processing"] += count
+                elif status == "embedded":
+                    counts["ready"] += count
+                elif status == "failed":
+                    counts["failed"] += count
+
+            return counts
+        except Exception as e:
+            logger.error(f"Failed to count user papers for {user_id}: {e}")
+            return {"total": 0, "pending": 0, "processing": 0, "ready": 0, "failed": 0}
 

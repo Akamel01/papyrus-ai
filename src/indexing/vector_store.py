@@ -467,8 +467,29 @@ class QdrantVectorStore(VectorStore):
             qdrant_filter = None
             if filters:
                 conditions = []
+                should_conditions = []  # For OR conditions
+
                 for key, value in filters.items():
-                    if isinstance(value, list):
+                    # Special filter: user_id_is_null (for shared_only mode)
+                    if key == "user_id_is_null" and value:
+                        conditions.append(
+                            self._models.IsNullCondition(
+                                is_null=self._models.PayloadField(key="user_id")
+                            )
+                        )
+                    # Special filter: user_id_or_null (for "both" mode)
+                    elif key == "user_id_or_null":
+                        # Match user_id = value OR user_id is NULL
+                        should_conditions = [
+                            self._models.FieldCondition(
+                                key="user_id",
+                                match=self._models.MatchValue(value=value)
+                            ),
+                            self._models.IsNullCondition(
+                                is_null=self._models.PayloadField(key="user_id")
+                            )
+                        ]
+                    elif isinstance(value, list):
                         conditions.append(
                             self._models.FieldCondition(
                                 key=key,
@@ -500,12 +521,29 @@ class QdrantVectorStore(VectorStore):
                 f"rescore={rescore}, quant={use_quantization}"
             )
             
+            # Build the final filter
+            final_filter = None
+            if filters:
+                if should_conditions and conditions:
+                    # Both must and should conditions
+                    final_filter = self._models.Filter(
+                        must=conditions,
+                        should=should_conditions,
+                        min_should=self._models.MinShould(conditions=should_conditions, min_count=1)
+                    )
+                elif should_conditions:
+                    # Only should conditions (OR logic)
+                    final_filter = self._models.Filter(should=should_conditions)
+                elif conditions:
+                    # Only must conditions (AND logic)
+                    final_filter = self._models.Filter(must=conditions)
+
             # Execute search
             # Note: QdrantClient v1.10+ deprecated 'search' in favor of 'query_points'
             response = client.query_points(
                 collection_name=self.collection_name,
                 query=query_embedding,
-                query_filter=self._models.Filter(must=conditions) if filters else None,
+                query_filter=final_filter,
                 limit=top_k,
                 search_params=search_params_obj,
                 with_payload=True,

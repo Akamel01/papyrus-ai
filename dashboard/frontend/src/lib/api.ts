@@ -151,3 +151,71 @@ export const coverage = {
             `/db/coverage/drilldown?keyword=${encodeURIComponent(keyword)}&year=${year}`
         ),
 };
+
+// =================== User Documents ===================
+export interface DocumentInfo {
+    document_id: string;
+    filename: string;
+    title: string;
+    status: 'pending' | 'processing' | 'ready' | 'failed';
+    file_size: number;
+    upload_date: string;
+    error_message?: string;
+}
+
+export interface DocumentListResponse {
+    documents: DocumentInfo[];
+    total: number;
+    counts: { total: number; pending: number; processing: number; ready: number; failed: number };
+}
+
+export const documents = {
+    list: () => request<DocumentListResponse>('/documents'),
+
+    upload: async (file: File): Promise<{ document_id: string; filename: string; status: string; message: string }> => {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const headers: Record<string, string> = {};
+        if (accessToken) {
+            headers['Authorization'] = `Bearer ${accessToken}`;
+        }
+
+        const res = await fetch(`${API_BASE}/documents/upload`, {
+            method: 'POST',
+            headers,
+            body: formData,
+        });
+
+        if (!res.ok) {
+            const body = await res.text();
+            throw new ApiError(res.status, body);
+        }
+        return res.json();
+    },
+
+    process: (documentId: string) =>
+        request<{ document_id: string; status: string; message: string }>(
+            `/documents/${documentId}/process`, { method: 'POST' }
+        ),
+
+    processAll: () =>
+        request<{ queued_count: number; message: string }>(
+            '/documents/process-all', { method: 'POST' }
+        ),
+
+    status: (documentId: string) =>
+        request<{ document_id: string; title: string; status: string; internal_status: string }>(
+            `/documents/${documentId}/status`
+        ),
+
+    delete: (documentId: string) =>
+        request<{ deleted: boolean; message: string }>(
+            `/documents/${documentId}`, { method: 'DELETE' }
+        ),
+
+    deleteBatch: (documentIds: string[]) =>
+        request<{ deleted_count: number; failed: string[] }>(
+            '/documents/batch', { method: 'DELETE', body: JSON.stringify(documentIds) }
+        ),
+};

@@ -304,6 +304,24 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class InternalLoginRequest(BaseModel):
+    """Login request for internal service-to-service auth (Dashboard -> Auth Service)."""
+    username: str  # Can be email or username
+    password: str
+
+
+class InternalLoginResponse(BaseModel):
+    """Response for internal login (includes dashboard_role)."""
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    expires_in: int
+    user_id: str
+    email: str
+    role: str  # Auth service role (user/admin)
+    dashboard_role: Optional[str] = None  # Dashboard-specific role (admin/operator/viewer)
+
+
 class RefreshRequest(BaseModel):
     refresh_token: str
 
@@ -530,6 +548,58 @@ async def login(request: LoginRequest, req: Request, db: DBSession = Depends(get
     db.commit()
 
     return tokens
+
+
+@app.post("/api/auth/internal/login", response_model=InternalLoginResponse)
+async def internal_login(request: InternalLoginRequest, db: DBSession = Depends(get_db)):
+    """
+    Internal login endpoint for service-to-service authentication.
+
+    Used by Dashboard backend to authenticate against the unified auth service.
+    No rate limiting applied (intended for internal network use only).
+
+    Accepts username which can be either:
+    - Email address (standard login)
+    - Username mapped to {username}@dashboard.local (for migrated dashboard users)
+    """
+    # Try to find user by email directly first
+    user = db.query(User).filter(User.email == request.username).first()
+
+    # If not found, try treating username as a dashboard username (mapped to email)
+    if not user:
+        dashboard_email = f"{request.username}@dashboard.local"
+        user = db.query(User).filter(User.email == dashboard_email).first()
+
+    if not user or not verify_password(request.password, user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid credentials"
+        )
+
+    if user.is_active != "true":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account is disabled"
+        )
+
+    # Update last login
+    user.last_login = datetime.utcnow()
+
+    # Create tokens
+    tokens = create_token_pair(user.id, user.email, user.role)
+
+    db.commit()
+
+    return InternalLoginResponse(
+        access_token=tokens.access_token,
+        refresh_token=tokens.refresh_token,
+        token_type=tokens.token_type,
+        expires_in=tokens.expires_in,
+        user_id=user.id,
+        email=user.email,
+        role=user.role,
+        dashboard_role=user.dashboard_role
+    )
 
 
 @app.post("/api/auth/refresh", response_model=TokenPair)

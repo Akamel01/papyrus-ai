@@ -8,6 +8,7 @@ import RunControls from './pages/RunControls'
 import CoverageMap from './pages/CoverageMap'
 import Metrics from './pages/Metrics'
 import Admin from './pages/Admin'
+import MyDocuments from './pages/MyDocuments'
 import { dashboardWS } from './lib/websocket'
 
 function App() {
@@ -32,6 +33,7 @@ function App() {
         <Route path="/runs" element={<RunControls />} />
         <Route path="/coverage" element={<CoverageMap />} />
         <Route path="/metrics" element={<Metrics />} />
+        <Route path="/documents" element={<MyDocuments />} />
         <Route path="/admin" element={<Admin />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

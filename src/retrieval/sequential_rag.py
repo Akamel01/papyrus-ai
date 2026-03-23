@@ -93,7 +93,9 @@ class SequentialRAG(
         citation_density: str = None,
         auto_citation_density: bool = True,
         status_callback: callable = None,  # New callback for live UI updates
-        user_id: str = None  # Multi-user isolation
+        user_id: str = None,  # Multi-user isolation
+        knowledge_source: str = "both",  # "shared_only", "user_only", or "both"
+        quick_upload_context: str = None  # Session-only uploaded documents
     ) -> Tuple[str, List, str, List[str], str, Dict[str, int]]:
         """
         Process query with optional additional search rounds.
@@ -110,7 +112,8 @@ class SequentialRAG(
             status_callback("🔍 Round 1: Initial broad search...")
             
         initial_context, initial_results, initial_refs, doi_map, _ = self._do_search(
-            query, preset, model, paper_range, depth=depth, search_params=search_params, user_id=user_id
+            query, preset, model, paper_range, depth=depth, search_params=search_params,
+            user_id=user_id, knowledge_source=knowledge_source
         )
         
         self.search_history.append(SearchRound(
@@ -172,7 +175,8 @@ class SequentialRAG(
                 
                 # Round 2: Follow-up search
                 follow_context, follow_results, follow_refs, follow_doi_map, _ = self._do_search(
-                    follow_up_query, preset, model, paper_range, depth=depth, search_params=follow_up_params, user_id=user_id
+                    follow_up_query, preset, model, paper_range, depth=depth, search_params=follow_up_params,
+                    user_id=user_id, knowledge_source=knowledge_source
                 )
                 
                 self.search_history.append(SearchRound(
@@ -212,8 +216,17 @@ class SequentialRAG(
         # Generate final response
         if status_callback: # Ensure callback is checked before call
              status_callback("✍️ Synthesizing final response...")
-            
+
         combined_context = "\n\n---\n\n".join(all_contexts)
+
+        # Prepend quick upload context (session-only documents) if provided
+        if quick_upload_context:
+            combined_context = (
+                "=== USER-PROVIDED DOCUMENTS (Highest Priority) ===\n\n"
+                f"{quick_upload_context}\n\n"
+                "=== RETRIEVED KNOWLEDGE BASE ===\n\n"
+                f"{combined_context}"
+            )
         
         # Count unique DOIs
         unique_dois_available = len(set(r.chunk.doi for r in all_results))

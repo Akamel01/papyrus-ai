@@ -21,6 +21,7 @@ class User(Base):
     password_hash = Column(String(255), nullable=False)
     display_name = Column(String(100), nullable=True)
     role = Column(String(20), default="user")  # user, admin
+    dashboard_role = Column(String(20), nullable=True)  # admin, operator, viewer (for Dashboard UI)
     created_at = Column(DateTime, default=datetime.utcnow)
     last_login = Column(DateTime, nullable=True)
     is_active = Column(String(5), default="true")  # SQLite doesn't have bool

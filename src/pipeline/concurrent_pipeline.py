@@ -18,7 +18,7 @@ Thread safety:
 import logging
 import time
 import threading
-from queue import Queue, Empty as QueueEmpty
+from queue import Queue, Empty as QueueEmpty, Full as QueueFull
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed, Future
 from typing import Iterator, Optional, Callable, Dict, Any, List, Tuple
 from dataclasses import dataclass, field
@@ -62,6 +62,52 @@ def _worker_parse_paper(
 
 # Sentinel value to signal thread shutdown
 _SENTINEL = None
+
+# Queue timeout configuration (reduced from 300s to prevent long hangs)
+QUEUE_PUT_TIMEOUT = 60  # seconds per attempt
+QUEUE_PUT_MAX_RETRIES = 3  # max retry attempts
+
+
+def _safe_queue_put(queue: Queue, item, timeout: float = QUEUE_PUT_TIMEOUT,
+                    max_retries: int = QUEUE_PUT_MAX_RETRIES,
+                    shutdown_event: Optional[threading.Event] = None) -> bool:
+    """
+    Put item in queue with retry logic and backoff.
+
+    Args:
+        queue: Target queue
+        item: Item to put
+        timeout: Timeout per attempt (default 60s)
+        max_retries: Max retry attempts (default 3)
+        shutdown_event: Optional shutdown event to check between retries
+
+    Returns:
+        True if item was put successfully, False if shutdown requested
+
+    Raises:
+        RuntimeError if all retries exhausted
+    """
+    for attempt in range(max_retries):
+        if shutdown_event and shutdown_event.is_set():
+            logger.info(f"[QUEUE-PUT] Shutdown requested, abandoning put after {attempt} attempts")
+            return False
+        try:
+            queue.put(item, timeout=timeout)
+            return True
+        except QueueFull:
+            if attempt < max_retries - 1:
+                wait_time = min(2 ** attempt, 10)  # Exponential backoff, cap at 10s
+                logger.warning(
+                    f"[QUEUE-PUT] Queue full, retry {attempt + 1}/{max_retries} "
+                    f"(waiting {wait_time}s)"
+                )
+                time.sleep(wait_time)
+            else:
+                raise RuntimeError(
+                    f"Failed to put item in queue after {max_retries} retries "
+                    f"(total wait: {timeout * max_retries}s)"
+                )
+    return False
 
 
 @dataclass
@@ -309,7 +355,15 @@ class ConcurrentPipeline:
                     pass
             bm25_thread.join(timeout=60.0)
             if bm25_thread.is_alive():
-                logger.warning("[CONCURRENT] BM25Worker did not stop gracefully")
+                logger.warning("[CONCURRENT] BM25Worker still running, signaling shutdown...")
+                if bm25_worker:
+                    bm25_worker.shutdown()  # Set shutdown event
+                bm25_thread.join(timeout=30.0)  # Second chance
+                if bm25_thread.is_alive():
+                    logger.error(
+                        "[CONCURRENT] BM25Worker failed to stop after 90s total - "
+                        "may leave Tantivy index locked"
+                    )
         
         elapsed = time.time() - start_time
         m = self.metrics.snapshot()
@@ -430,7 +484,12 @@ class ConcurrentPipeline:
                                 except Exception as db_err:
                                     logger.warning(f"[CHUNK-WORKER] DB update failed for {item.id}: {db_err}")
 
-                                self.parsed_queue.put(item, timeout=300)
+                                if not _safe_queue_put(
+                                    self.parsed_queue, item,
+                                    shutdown_event=self._shutdown
+                                ):
+                                    logger.info(f"[CHUNK-WORKER] Shutdown during queue put for {item.id}")
+                                    break
                                 self.metrics.increment("papers_parsed")
                                 processed += 1
                                 
@@ -554,7 +613,12 @@ class ConcurrentPipeline:
                     
                     # Only dispatch to storage once the entire paper is done
                     if is_last:
-                        self.embedded_queue.put(item, timeout=300)
+                        if not _safe_queue_put(
+                            self.embedded_queue, item,
+                            shutdown_event=self._shutdown
+                        ):
+                            logger.info(f"[EMBED-WORKER] Shutdown during queue put for {item.id}")
+                            break
                         self.metrics.increment("papers_embedded")
                         processed += 1
                     

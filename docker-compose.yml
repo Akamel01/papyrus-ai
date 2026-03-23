@@ -133,6 +133,9 @@ services:
       - CONFIG_PATH=/config/acquisition_config.yaml
       - DB_PATH=/data/sme.db
       - CORS_ORIGINS=http://localhost:3030,http://localhost:3000,http://localhost:5173,https://papyrus-ai.net
+      # Unified Auth Service configuration
+      - USE_UNIFIED_AUTH=true
+      - AUTH_SERVICE_URL=http://sme_auth:8000
     deploy:
       resources:
         limits:
@@ -142,6 +145,8 @@ services:
       qdrant:
         condition: service_healthy
       app:
+        condition: service_healthy
+      auth:
         condition: service_healthy
     healthcheck:
       test: [ "CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8400/health')\" || exit 1" ]

@@ -5,9 +5,34 @@ Adapts existing backend components to the API expected by main.py.
 """
 
 from typing import List, Dict, Tuple, Any, Optional
+import streamlit as st
 from src.retrieval.hybrid_search import HybridSearch
 from src.retrieval.sequential_rag import SequentialRAG
 from src.core.interfaces import RetrievalResult
+
+
+def _get_quick_upload_context() -> Optional[str]:
+    """
+    Get combined text from quick uploads in session state.
+
+    Returns:
+        Combined context string with source markers, or None if no uploads
+    """
+    if not st.session_state.get("quick_uploads"):
+        return None
+
+    context_parts = []
+    for doc in st.session_state.quick_uploads:
+        # Limit content to prevent context overflow (5000 chars per doc)
+        content = doc["content"][:5000]
+        if len(doc["content"]) > 5000:
+            content += "\n[... content truncated ...]"
+
+        context_parts.append(
+            f"[Quick Upload: {doc['filename']}]\n{content}"
+        )
+
+    return "\n\n---\n\n".join(context_parts)
 
 class RetrieverWrapper:
     """Wraps HybridSearch to expose a simple .retrieve interface."""
@@ -15,16 +40,25 @@ class RetrieverWrapper:
     def __init__(self, hybrid_search: HybridSearch):
         self.hybrid_search = hybrid_search
 
-    def retrieve(self, query: str, top_k: int, user_id: Optional[str] = None) -> List[RetrievalResult]:
+    def retrieve(
+        self,
+        query: str,
+        top_k: int,
+        user_id: Optional[str] = None,
+        knowledge_source: str = "both"
+    ) -> List[RetrievalResult]:
         """Retrieve relevant documents.
 
         Args:
             query: Search query
             top_k: Number of results
             user_id: Optional user ID for multi-user isolation
+            knowledge_source: "shared_only", "user_only", or "both"
         """
-        # Use existing search method with user_id for multi-user filtering
-        return self.hybrid_search.search(query, top_k=top_k, user_id=user_id)
+        # Use existing search method with user_id and knowledge_source filtering
+        return self.hybrid_search.search(
+            query, top_k=top_k, user_id=user_id, knowledge_source=knowledge_source
+        )
 
 
 class RAGWrapper:
@@ -37,11 +71,13 @@ class RAGWrapper:
     def generate(self, query: str, depth: str, model: str, paper_range: Tuple[int, int],
                  citation_density: str, auto_citation_density: bool,
                  user_id: Optional[str] = None,
+                 knowledge_source: str = "both",
                  **kwargs):
         """Standard generation method (Non-sequential).
 
         Args:
             user_id: Optional user ID for multi-user isolation
+            knowledge_source: "shared_only", "user_only", or "both"
         """
         # Import local process_query from main (circular import avoidance or duplicate logic)
         # Ideally, main.py's process_query should be moved here or imported.
@@ -90,7 +126,17 @@ class RAGWrapper:
             min_unique_papers=min_papers,
             max_unique_papers=max_papers
         )
-        
+
+        # 2.5. Prepend Quick Upload context (session-only documents)
+        quick_upload_context = _get_quick_upload_context()
+        if quick_upload_context:
+            context_text = (
+                "=== USER-PROVIDED DOCUMENTS (Highest Priority) ===\n\n"
+                f"{quick_upload_context}\n\n"
+                "=== RETRIEVED KNOWLEDGE BASE ===\n\n"
+                f"{context_text}"
+            )
+
         # 3. Generate
         prompt_builder = self.pipeline["prompt_builder"]
         # Basic context prompt
@@ -183,7 +229,13 @@ class RAGWrapper:
         return response, sources_list, confidence, apa_refs, compliance_badge, doi_map, reflection_log_data
 
 
-    def generate_sequential(self, query: str, user_id: Optional[str] = None, **kwargs):
+    def generate_sequential(
+        self,
+        query: str,
+        user_id: Optional[str] = None,
+        knowledge_source: str = "both",
+        **kwargs
+    ):
         """Sequential generation method.
 
         NOTE: SequentialRAG performs its own multi-round search internally,
@@ -191,11 +243,15 @@ class RAGWrapper:
 
         Args:
             user_id: Optional user ID for multi-user isolation
+            knowledge_source: "shared_only", "user_only", or "both"
         """
         # kwargs needed: depth, model, paper_range, conversation_history, citation_density, auto_citation_density, status_callback
 
         # Pop retrieved_context if passed (for backwards compatibility) but don't use it
         kwargs.pop("retrieved_context", None)
+
+        # Get quick upload context for session-only documents
+        quick_upload_context = _get_quick_upload_context()
 
         response, sources, confidence, apa_refs, compliance_badge, doi_map = self.sequential_rag.process_with_reflection(
             query=query,
@@ -206,7 +262,9 @@ class RAGWrapper:
             citation_density=kwargs.get("citation_density"),
             auto_citation_density=kwargs.get("auto_citation_density", True),
             status_callback=kwargs.get("status_callback"),
-            user_id=user_id
+            user_id=user_id,
+            knowledge_source=knowledge_source,
+            quick_upload_context=quick_upload_context
         )
 
         return response, sources, confidence, apa_refs, compliance_badge, doi_map, self.sequential_rag.reflection_log

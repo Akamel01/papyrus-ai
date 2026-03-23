@@ -41,6 +41,9 @@ class SidebarConfig:
     
     citation_density: str
     """Citation density level ("Low", "Medium", "High")."""
-    
+
     auto_citation_density: bool
     """If True, AI decides citation density based on query."""
+
+    knowledge_source: str = "both"
+    """Knowledge source to search: "shared_only", "user_only", or "both"."""

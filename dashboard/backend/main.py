@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from routes import config_routes, run_routes, db_routes, qdrant_routes
 from routes import metrics_routes, dlq_routes, audit_routes, auth_routes, ws_routes
+from routes import documents_routes
 from metrics_collector import MetricsCollector
 from ws_manager import WSManager
 from prometheus_metrics import (
@@ -63,6 +64,7 @@ app.include_router(qdrant_routes.router, prefix="/api/qdrant", tags=["Qdrant"])
 app.include_router(metrics_routes.router, prefix="/api/metrics", tags=["Metrics"])
 app.include_router(dlq_routes.router, prefix="/api/dlq", tags=["DLQ"])
 app.include_router(audit_routes.router, prefix="/api/audit", tags=["Audit"])
+app.include_router(documents_routes.router, prefix="/api/documents", tags=["Documents"])
 app.include_router(ws_routes.router, tags=["WebSocket"])
 
 
@@ -98,22 +100,39 @@ async def _metrics_sample_loop():
     from routes.metrics_routes import record_sample
     while True:
         try:
-            record_sample()
+            await record_sample()
         except Exception as e:
             logger.warning(f"Metrics sample error: {e}")
         await asyncio.sleep(10.0)
 
 
 async def _pipeline_gauge_loop():
-    """Update Prometheus pipeline gauge every 5s."""
+    """Update Prometheus pipeline gauge and broadcast state changes every 2s."""
     from command_runner import tracker
+    last_state = None
     while True:
         try:
             status = tracker.get_status()
             update_pipeline_gauge(status.get("running", False), status.get("mode"))
             update_ws_clients_gauge(ws_manager.client_count)
-        except Exception:
-            pass
+
+            # Broadcast state change if status changed
+            current_state = (status.get("running"), status.get("mode"), status.get("pid"))
+            if current_state != last_state:
+                await ws_manager.broadcast({
+                    "type": "pipeline.state_change",
+                    "payload": {
+                        "running": status.get("running", False),
+                        "mode": status.get("mode"),
+                        "pid": status.get("pid"),
+                        "uptime_sec": status.get("uptime_sec"),
+                        "timestamp": time.time()
+                    }
+                })
+                last_state = current_state
+                logger.info(f"[WS] Pipeline state change broadcast: running={status.get('running')}")
+        except Exception as e:
+            logger.debug(f"Pipeline gauge loop error: {e}")
         await asyncio.sleep(2.0)
 
 
