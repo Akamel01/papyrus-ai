@@ -28,6 +28,7 @@ from src.core.interfaces import Chunk
 from .retry_policy import RetryPolicy, RetryExhausted, CHUNK_RETRY, EMBED_RETRY, STORE_RETRY
 from .dead_letter_queue import DeadLetterQueue
 from .chunk_worker import process_paper_to_chunks
+from .bm25_worker import BM25Worker, BM25IndexItem
 
 logger = logging.getLogger(__name__)
 
@@ -136,6 +137,10 @@ class ConcurrentPipeline:
         store_retry: Optional[RetryPolicy] = None,
         parser_config: Optional[Dict] = None,
         chunker_config: Optional[Dict] = None,
+        bm25_index: Optional[Any] = None,
+        paper_store: Optional[Any] = None,
+        bm25_batch_size: int = 50,
+        bm25_commit_interval: float = 5.0,
     ):
         self.chunk_stage = chunk_stage
         self.embed_stage = embed_stage
@@ -147,20 +152,29 @@ class ConcurrentPipeline:
         self.embed_batch_timeout = embed_batch_timeout
         self.parser_config = parser_config or {}
         self.chunker_config = chunker_config or {}
-        
+
+        # BM25 concurrent indexing
+        self.bm25_index = bm25_index
+        self.paper_store = paper_store
+        self.bm25_batch_size = bm25_batch_size
+        self.bm25_commit_interval = bm25_commit_interval
+
         # Bounded queues
         self.input_queue = Queue(maxsize=parsed_queue_size)     # Q0: source → chunk
         self.parsed_queue = Queue(maxsize=parsed_queue_size)    # Q1: chunk → embed
         self.embedded_queue = Queue(maxsize=embedded_queue_size)  # Q2: embed → store
-        
+
+        # BM25 queue (only if bm25_index provided)
+        self.bm25_queue: Optional[Queue] = Queue(maxsize=200) if bm25_index else None
+
         # Retry policies
         self.chunk_retry = chunk_retry or CHUNK_RETRY
         self.embed_retry = embed_retry or EMBED_RETRY
         self.store_retry = store_retry or STORE_RETRY
-        
+
         # Metrics
         self.metrics = PipelineMetrics()
-        
+
         # Shutdown coordination
         self._shutdown = threading.Event()
         
@@ -177,6 +191,7 @@ class ConcurrentPipeline:
         """
         start_time = time.time()
         
+        bm25_enabled = self.bm25_index is not None and self.paper_store is not None
         logger.info(
             f"[CONCURRENT] Starting pipeline | "
             f"Q1_size={self.parsed_queue.maxsize}, "
@@ -184,9 +199,28 @@ class ConcurrentPipeline:
             f"chunk_workers={self.chunk_workers}, "
             f"embed_batch_size={self.embed_batch_size}, "
             f"embed_batch_timeout={self.embed_batch_timeout}s, "
+            f"bm25_enabled={bm25_enabled}, "
             f"limit={limit}"
         )
-        
+
+        # Start BM25 worker thread (if enabled)
+        bm25_worker = None
+        bm25_thread = None
+        if bm25_enabled:
+            bm25_worker = BM25Worker(
+                bm25_index=self.bm25_index,
+                paper_store=self.paper_store,
+                queue=self.bm25_queue,
+                batch_size=self.bm25_batch_size,
+                commit_interval=self.bm25_commit_interval,
+            )
+            bm25_thread = threading.Thread(
+                target=bm25_worker.run,
+                name="BM25Worker",
+                daemon=False
+            )
+            bm25_thread.start()
+
         # Start worker threads
         feeder_thread = threading.Thread(
             target=self._feeder_worker,
@@ -252,12 +286,30 @@ class ConcurrentPipeline:
                 self.embedded_queue.put(_SENTINEL, timeout=1)
             except Exception:
                 pass
-        
+            # BM25 queue sentinel
+            if self.bm25_queue:
+                try:
+                    self.bm25_queue.put(_SENTINEL, timeout=1)
+                except Exception:
+                    pass
+
         # Wait for all threads to finish
         feeder_thread.join(timeout=30.0)
         chunk_thread.join(timeout=30.0)
         embed_thread.join(timeout=30.0)
         store_thread.join(timeout=30.0)
+
+        # Wait for BM25 worker to finish (give extra time to flush)
+        if bm25_thread:
+            # Send sentinel if not already sent
+            if self.bm25_queue:
+                try:
+                    self.bm25_queue.put(_SENTINEL, timeout=1)
+                except Exception:
+                    pass
+            bm25_thread.join(timeout=60.0)
+            if bm25_thread.is_alive():
+                logger.warning("[CONCURRENT] BM25Worker did not stop gracefully")
         
         elapsed = time.time() - start_time
         m = self.metrics.snapshot()
@@ -650,16 +702,28 @@ class ConcurrentPipeline:
                         paper = stored_item.metadata.get('paper')
                         chunks = stored_item.payload
                         num_chunks = len(chunks) if isinstance(chunks, list) else 0
-                        
+
                         self.metrics.increment("papers_stored")
                         processed += 1
-                        
+
                         if self.on_success and paper:
                             try:
                                 self.on_success(paper, num_chunks)
                             except Exception as cb_err:
                                 logger.warning(f"[STORE-WORKER] on_success callback error: {cb_err}")
-                        
+
+                        # Send to BM25 worker for concurrent indexing
+                        if self.bm25_queue is not None and paper and isinstance(chunks, list):
+                            try:
+                                bm25_item = BM25IndexItem(
+                                    paper_unique_id=paper.unique_id,
+                                    chunk_ids=[c.chunk_id for c in chunks],
+                                    texts=[c.text for c in chunks]
+                                )
+                                self.bm25_queue.put(bm25_item, timeout=30)
+                            except Exception as bm25_err:
+                                logger.warning(f"[STORE-WORKER] Failed to queue BM25 item: {bm25_err}")
+
                         logger.info(
                             f"✅ Stored Paper {paper.unique_id if paper else item.id} "
                             f"({num_chunks} chunks)"

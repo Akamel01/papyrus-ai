@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS papers (
     import_source TEXT,                -- Source of import (e.g., 'manual_import')
     apa_reference TEXT,                -- APA formatted reference
     user_id TEXT,                      -- Multi-user: Owner user ID (NULL = shared/legacy)
+    bm25_indexed INTEGER DEFAULT 0,    -- 1 if paper chunks are indexed in BM25/Tantivy
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

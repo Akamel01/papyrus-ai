@@ -51,6 +51,11 @@ class PaperStore:
                 # Ensure multi-user indexes exist
                 conn.execute("CREATE INDEX IF NOT EXISTS idx_papers_user_id ON papers(user_id)")
                 conn.execute("CREATE INDEX IF NOT EXISTS idx_papers_user_status ON papers(user_id, status)")
+                # BM25 indexing tracking column
+                if 'bm25_indexed' not in columns:
+                    logger.info("Migrating schema: Adding 'bm25_indexed' column to papers table")
+                    conn.execute("ALTER TABLE papers ADD COLUMN bm25_indexed INTEGER DEFAULT 0")
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_papers_bm25_indexed ON papers(bm25_indexed)")
         except Exception as e:
             logger.error(f"Schema migration failed: {e}")
 
@@ -420,4 +425,58 @@ class PaperStore:
         except Exception as e:
             logger.error(f"Failed to upgrade paper {unique_id} to manual import: {e}")
             raise
+
+    # ─── BM25 Indexing Methods ───────────────────────────────────────────────
+
+    def mark_bm25_indexed(self, unique_ids: List[str]) -> int:
+        """
+        Batch mark papers as BM25 indexed.
+        Returns the number of rows updated.
+        """
+        if not unique_ids:
+            return 0
+
+        # Use parameterized query with placeholders
+        placeholders = ','.join(['?' for _ in unique_ids])
+        query = f"""
+        UPDATE papers
+        SET bm25_indexed = 1, updated_at = CURRENT_TIMESTAMP
+        WHERE unique_id IN ({placeholders})
+        """
+        try:
+            count = self._execute_with_retry(query, tuple(unique_ids), f"mark {len(unique_ids)} papers as bm25_indexed")
+            return count
+        except Exception as e:
+            logger.error(f"Failed to mark papers as BM25 indexed: {e}")
+            return 0
+
+    def get_unindexed_bm25_papers(self, limit: int = 1000) -> List[str]:
+        """
+        Get unique_ids of papers that are embedded but not yet BM25 indexed.
+        Used for resume logic on startup.
+        """
+        query = """
+        SELECT unique_id FROM papers
+        WHERE status = 'embedded' AND (bm25_indexed IS NULL OR bm25_indexed = 0)
+        ORDER BY id ASC
+        LIMIT ?
+        """
+        try:
+            with self.db.get_connection() as conn:
+                rows = conn.execute(query, (limit,)).fetchall()
+                return [r[0] for r in rows]
+        except Exception as e:
+            logger.error(f"Failed to get unindexed BM25 papers: {e}")
+            return []
+
+    def count_bm25_indexed(self) -> int:
+        """Count papers that have been BM25 indexed."""
+        query = "SELECT COUNT(*) FROM papers WHERE bm25_indexed = 1"
+        try:
+            with self.db.get_connection() as conn:
+                result = conn.execute(query).fetchone()
+                return result[0] if result else 0
+        except Exception as e:
+            logger.error(f"Failed to count BM25 indexed papers: {e}")
+            return 0
 

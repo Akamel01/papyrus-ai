@@ -33,6 +33,7 @@ from src.acquisition.paper_discoverer import PaperDiscoverer
 from src.indexing.embedder import create_embedder
 from src.indexing.vector_store import create_vector_store
 from src.indexing.qdrant_optimizer import run_startup_optimization
+from src.indexing.bm25_index import create_bm25_index
 from src.pipeline.stages import DatabaseSource, DownloadStage, ChunkStage, EmbedStage, StorageStage
 from src.pipeline.concurrent_pipeline import ConcurrentPipeline
 from src.pipeline.dead_letter_queue import DeadLetterQueue
@@ -161,6 +162,140 @@ def _discovery_worker(discoverer: PaperDiscoverer, paper_store: PaperStore, conf
         logger.error(f"[DISCOVERY-WORKER] Fatal error: {e}", exc_info=True)
     finally:
         logger.info("[DISCOVERY-WORKER] Stopped.")
+
+# ──────────────────────────────────────────────────────────────────────────────
+# BM25 Startup Resume
+# ──────────────────────────────────────────────────────────────────────────────
+
+def _resume_bm25_indexing(paper_store: PaperStore, bm25_index, vector_store) -> int:
+    """
+    Index papers that are embedded but not yet BM25 indexed.
+
+    This handles the gap when the pipeline stops with papers embedded in Qdrant
+    but not yet indexed in Tantivy. Called at startup before the pipeline runs.
+
+    Args:
+        paper_store: PaperStore instance
+        bm25_index: TantivyBM25Index instance
+        vector_store: QdrantVectorStore instance (for fetching chunk texts)
+
+    Returns:
+        Number of papers indexed
+    """
+    import tantivy
+    from qdrant_client import models
+
+    total_indexed = 0
+    batch_size = 500
+
+    while True:
+        # Get papers that are embedded but not BM25 indexed
+        unindexed = paper_store.get_unindexed_bm25_papers(limit=batch_size)
+        if not unindexed:
+            break
+
+        logger.info(f"[BM25-RESUME] Found {len(unindexed)} unindexed papers, processing...")
+
+        # Get Qdrant client
+        try:
+            client = vector_store._get_client()
+            collection = vector_store.collection_name
+        except Exception as e:
+            logger.error(f"[BM25-RESUME] Failed to get Qdrant client: {e}")
+            break
+
+        # Create Tantivy writer (wrapped in try/finally to ensure cleanup)
+        writer = None
+        try:
+            writer = bm25_index.tantivy_index.writer(heap_size=64 * 1024 * 1024)
+        except Exception as e:
+            logger.error(f"[BM25-RESUME] Failed to create writer: {e}")
+            break
+
+        indexed_in_batch = 0
+        papers_to_mark = []
+
+        for paper_id in unindexed:
+            try:
+                # Scroll Qdrant for chunks belonging to this paper
+                # Extract DOI value from unique_id (e.g., "doi:10.1234/xyz" -> "10.1234/xyz")
+                doi_value = paper_id
+                if paper_id.startswith("doi:"):
+                    doi_value = paper_id[4:]
+                elif paper_id.startswith("arxiv:"):
+                    doi_value = paper_id[6:]
+
+                chunks_found = 0
+                offset = None
+
+                while True:
+                    results, next_offset = client.scroll(
+                        collection_name=collection,
+                        limit=100,
+                        offset=offset,
+                        scroll_filter=models.Filter(
+                            must=[models.FieldCondition(
+                                key="doi",
+                                match=models.MatchValue(value=doi_value)
+                            )]
+                        ),
+                        with_payload=True,
+                        with_vectors=False,
+                    )
+
+                    if not results:
+                        break
+
+                    for point in results:
+                        payload = point.payload or {}
+                        text = payload.get("text", "")
+                        if text.strip():
+                            doc_dict = {"id": str(point.id), "text": text}
+                            writer.add_document(
+                                tantivy.Document.from_dict(doc_dict, bm25_index.schema)
+                            )
+                            chunks_found += 1
+
+                    if next_offset is None:
+                        break
+                    offset = next_offset
+
+                if chunks_found > 0:
+                    papers_to_mark.append(paper_id)
+                    indexed_in_batch += chunks_found
+
+            except Exception as e:
+                logger.warning(f"[BM25-RESUME] Failed to index paper {paper_id}: {e}")
+
+        # Commit batch and release writer
+        try:
+            if papers_to_mark:
+                writer.commit()
+                marked = paper_store.mark_bm25_indexed(papers_to_mark)
+                total_indexed += len(papers_to_mark)
+                logger.info(
+                    f"[BM25-RESUME] Batch complete: {len(papers_to_mark)} papers, "
+                    f"{indexed_in_batch} chunks, marked={marked}"
+                )
+            else:
+                # No papers found in this batch (maybe filter didn't match)
+                # Mark them anyway to prevent infinite loop
+                paper_store.mark_bm25_indexed(unindexed)
+                logger.warning(f"[BM25-RESUME] No chunks found for {len(unindexed)} papers, marking as indexed")
+        finally:
+            # Explicitly release the writer and reload index to release lock
+            del writer
+            import gc
+            gc.collect()
+            bm25_index.tantivy_index.reload()
+
+    if total_indexed > 0:
+        logger.info(f"[BM25-RESUME] ✅ Resume complete: indexed {total_indexed} papers")
+    else:
+        logger.info("[BM25-RESUME] No papers needed indexing")
+
+    return total_indexed
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Manual Import Handler
@@ -404,6 +539,31 @@ def run_pipeline(args):
         optimized_params=config.get('optimized_params')
     )
 
+    # ── BM25 Tantivy Index (for concurrent indexing) ──
+    bm25_config = config.get('bm25', {})
+    bm25_enabled = bm25_config.get('enabled', True) and bm25_config.get('use_tantivy', True)
+    bm25_index = None
+
+    if bm25_enabled:
+        try:
+            bm25_index = create_bm25_index(
+                index_path=bm25_config.get('index_path', 'data/bm25_index.tantivy'),
+                use_tantivy=True,
+                vector_store=vector_store
+            )
+            logger.info("[STARTUP] BM25 Tantivy index loaded for concurrent indexing")
+
+            # Resume indexing for papers that are embedded but not BM25 indexed
+            logger.info("[STARTUP] Checking for unindexed BM25 papers...")
+            resumed = _resume_bm25_indexing(paper_store, bm25_index, vector_store)
+            if resumed > 0:
+                logger.info(f"[STARTUP] Resumed BM25 indexing for {resumed} papers")
+
+        except Exception as e:
+            logger.warning(f"[STARTUP] Failed to initialize BM25 index: {e}")
+            logger.warning("[STARTUP] Pipeline will run without concurrent BM25 indexing")
+            bm25_index = None
+
     # ── Initialize DLQ ──
     dlq = DeadLetterQueue(db_path=db_path)
 
@@ -531,7 +691,12 @@ def run_pipeline(args):
         parsed_queue_size=auto_params.get('queue_size_parsed', 100),
         embedded_queue_size=auto_params.get('queue_size_embedded', 100),
         parser_config=parser_cfg,
-        chunker_config=chunker_cfg
+        chunker_config=chunker_cfg,
+        # BM25 concurrent indexing
+        bm25_index=bm25_index,
+        paper_store=paper_store,
+        bm25_batch_size=bm25_config.get('batch_size', 50),
+        bm25_commit_interval=bm25_config.get('commit_interval', 5.0),
     )
 
     # ── SIGTERM Handler ──

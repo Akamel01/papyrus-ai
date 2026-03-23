@@ -473,66 +473,18 @@ def create_bm25_index(
                 index_path=index_path,
                 vector_store=vector_store
             )
-            
-            # --- Auto-Rebuild Logic (Phase 9 & 10) ---
-            # Check if index is empty OR stale
+
+            # Log index status (no auto-rebuild - handled by pipeline's BM25Worker)
             try:
-                should_rebuild = False
-                reason = ""
-                
-                # Check 1: Empty Index
                 searcher = bm25.tantivy_index.searcher()
                 doc_count = searcher.num_docs
-                
-                if doc_count == 0 and vector_store:
-                    should_rebuild = True
-                    reason = "Index is EMPTY"
-                
-                # Check 2: Staleness (Drift)
-                elif vector_store:
-                    # Get Qdrant count safely
-                    try:
-                        q_count = vector_store.count()
-                        if bm25.is_stale(q_count):
-                            should_rebuild = True
-                            reason = f"Index is STALE (Qdrant={q_count} vs BM25={doc_count})"
-                    except Exception as ve:
-                        logger.warning(f"[BM25] Failed to get vector store count: {ve}")
-
-                if should_rebuild:
-                    logger.warning(f"[BM25] {reason}. Triggering background rebuild from Qdrant...")
-                    
-                    def run_rebuild():
-                        try:
-                            # Verify lock/concurrency safety implicitly by catching errors
-                            client = vector_store._get_client()
-                            collection = vector_store.collection_name
-                            
-                            # Use optimized settings for build
-                            # NOTE: efficient rebuild on Windows requires handling file locks if valid
-                            # For now, we attempt standard build.
-                            bm25.build_from_qdrant(
-                                client=client, 
-                                collection_name=collection,
-                                batch_size=500, # Conservative
-                                num_threads=1,  # Stable
-                                heap_size_mb=64,
-                                commit_interval=10000,
-                                resume=True 
-                            )
-                        except Exception as e:
-                            logger.error(f"[BM25-BG] Rebuild failed: {e}")
-                            
-                    import threading
-                    t = threading.Thread(target=run_rebuild, name="BM25BackgroundBuild", daemon=True)
-                    t.start()
-                    logger.info("[BM25] Background rebuild thread started.")
-                elif doc_count > 0:
-                    logger.info(f"[BM25] Index loaded with {doc_count} documents (Fresh).")
-                    
+                if doc_count > 0:
+                    logger.info(f"[BM25] Index loaded with {doc_count} documents")
+                else:
+                    logger.info("[BM25] Index is empty - will be populated by pipeline's BM25Worker")
             except Exception as e:
                 logger.warning(f"[BM25] Failed to check index status: {e}")
-                
+
             return bm25
             
         except ImportError:

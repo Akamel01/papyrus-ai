@@ -1,0 +1,20 @@
+# Development override - bind mount source code for instant updates
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up app
+#
+# For code changes: just restart the container (no rebuild needed!)
+#   docker-compose restart app
+#
+# For requirements.txt changes: rebuild only deps layer
+#   docker-compose build app && docker-compose up -d app
+
+services:
+  app:
+    volumes:
+      # Bind mount source code directories (overwrites COPY in image)
+      - ./src:/app/src:ro
+      - ./app:/app/app:ro
+      - ./scripts:/app/scripts:ro
+      # Keep other volumes from base compose
+      - sme_db_data:/app/data
+      - sme_hf_model_cache:/root/.cache/huggingface
+      - ./config:/app/config:ro
