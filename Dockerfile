@@ -1,42 +1,49 @@
 # syntax=docker/dockerfile:1
-# Use NVIDIA CUDA base image to ensure GPU runtime libraries are present
-FROM nvidia/cuda:12.1.1-runtime-ubuntu22.04
+# SME Research Assistant - Application Dockerfile
+#
+# This Dockerfile extends from a pre-baked base image that includes
+# CUDA, Python 3.11, and PyTorch. This avoids re-downloading PyTorch
+# (~2.5GB) on every build, reducing build time from ~15-20 min to ~2-3 min.
+#
+# For local development without the base image, set:
+#   --build-arg BASE_IMAGE=nvidia/cuda:12.1.1-runtime-ubuntu22.04
+# Then uncomment the fallback sections below.
 
-# Set environment variables
+# Base image with CUDA + Python + PyTorch pre-installed
+# Override with --build-arg BASE_IMAGE=... for custom base
+ARG BASE_IMAGE=nvidia/cuda:12.1.1-runtime-ubuntu22.04
+FROM ${BASE_IMAGE}
+
+# Set environment variables (in case base image doesn't have them)
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     DEBIAN_FRONTEND=noninteractive
 
-# Install system dependencies AND Python 3.11
-RUN apt-get update && apt-get install -y software-properties-common curl gpg-agent && \
-    add-apt-repository -y ppa:deadsnakes/ppa && \
-    apt-get update && apt-get install -y \
-    python3.11 \
-    python3.11-venv \
-    python3.11-dev \
-    python3.11-distutils \
-    gcc \
-    g++ \
-    poppler-utils \
-    tesseract-ocr \
-    libgl1 \
-    && rm -rf /var/lib/apt/lists/*
+# ─── Fallback: Install deps if using raw CUDA image ───
+# These layers are skipped if base image already has them (layer caching)
+RUN if ! command -v python3.11 &> /dev/null; then \
+        apt-get update && apt-get install -y software-properties-common curl gpg-agent && \
+        add-apt-repository -y ppa:deadsnakes/ppa && \
+        apt-get update && apt-get install -y \
+        python3.11 python3.11-venv python3.11-dev python3.11-distutils \
+        gcc g++ poppler-utils tesseract-ocr libgl1 && \
+        rm -rf /var/lib/apt/lists/* && \
+        curl -sS https://bootstrap.pypa.io/get-pip.py | python3.11 && \
+        ln -s /usr/bin/python3.11 /usr/local/bin/python && \
+        ln -sf /usr/bin/python3.11 /usr/bin/python3 && \
+        python -m pip install --upgrade pip; \
+    fi
 
-# Set python3.11 as default python and install pip
-RUN curl -sS https://bootstrap.pypa.io/get-pip.py | python3.11 && \
-    ln -s /usr/bin/python3.11 /usr/local/bin/python && \
-    ln -sf /usr/bin/python3.11 /usr/bin/python3 && \
-    python -m pip install --upgrade pip
+# ─── Fallback: Install PyTorch if not in base image ───
+RUN if ! python -c "import torch" 2>/dev/null; then \
+        pip install torch --index-url https://download.pytorch.org/whl/cu121; \
+    fi
 
 # Set working directory
 WORKDIR /app
 
-# Install Python dependencies
-# Step 1: CUDA-enabled PyTorch (separate layer for caching — only rebuilds if index changes)
-RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install torch --index-url https://download.pytorch.org/whl/cu121
-
-# Step 2: Remaining dependencies (torch requirement already satisfied, pip skips it)
+# Install remaining Python dependencies
+# (torch requirement already satisfied in base, pip skips it)
 COPY requirements.txt .
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install --ignore-installed blinker --ignore-installed zipp -r requirements.txt

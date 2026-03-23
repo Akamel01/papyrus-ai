@@ -151,6 +151,9 @@ class BM25Worker:
 
         This is an atomic operation - either all items in the batch are
         committed and marked, or none are (on error).
+
+        CRITICAL: Writer must ALWAYS be cleaned up in finally block to prevent
+        holding the lock indefinitely on exceptions.
         """
         if not batch:
             return
@@ -159,6 +162,8 @@ class BM25Worker:
         total_chunks = sum(len(item.chunk_ids) for item in batch)
         paper_ids = [item.paper_unique_id for item in batch]
 
+        writer = None
+        chunks_added = 0
         try:
             # Get Tantivy writer
             import tantivy
@@ -167,7 +172,6 @@ class BM25Worker:
             )
 
             # Add all documents
-            chunks_added = 0
             for item in batch:
                 for chunk_id, text in zip(item.chunk_ids, item.texts):
                     if not text.strip():
@@ -207,6 +211,18 @@ class BM25Worker:
                 exc_info=True
             )
             # Don't mark as indexed - will be retried on resume
+
+        finally:
+            # CRITICAL: Always release writer lock to prevent index deadlock
+            if writer is not None:
+                try:
+                    del writer
+                    import gc
+                    gc.collect()
+                    # Reload index to release any lingering file handles
+                    self.bm25_index.tantivy_index.reload()
+                except Exception as cleanup_err:
+                    logger.warning(f"[BM25-WORKER] Writer cleanup warning: {cleanup_err}")
 
     def shutdown(self):
         """Signal the worker to stop."""

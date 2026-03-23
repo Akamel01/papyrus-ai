@@ -1,0 +1,52 @@
+# syntax=docker/dockerfile:1
+# SME Base Image - CUDA + Python 3.11 + PyTorch
+#
+# This image is built separately and cached to speed up CI builds.
+# The main Dockerfile extends from this base to avoid re-downloading
+# PyTorch (~2.5GB) on every build.
+#
+# Build: docker build -f docker/Dockerfile.base -t sme-base:latest .
+# Usage: docker build --build-arg BASE_IMAGE=sme-base:latest .
+
+FROM nvidia/cuda:12.1.1-runtime-ubuntu22.04
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    DEBIAN_FRONTEND=noninteractive
+
+# Install system dependencies AND Python 3.11
+RUN apt-get update && apt-get install -y software-properties-common curl gpg-agent && \
+    add-apt-repository -y ppa:deadsnakes/ppa && \
+    apt-get update && apt-get install -y \
+    python3.11 \
+    python3.11-venv \
+    python3.11-dev \
+    python3.11-distutils \
+    gcc \
+    g++ \
+    poppler-utils \
+    tesseract-ocr \
+    libgl1 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set python3.11 as default python and install pip
+RUN curl -sS https://bootstrap.pypa.io/get-pip.py | python3.11 && \
+    ln -s /usr/bin/python3.11 /usr/local/bin/python && \
+    ln -sf /usr/bin/python3.11 /usr/bin/python3 && \
+    python -m pip install --upgrade pip
+
+# Install CUDA-enabled PyTorch (the slow part we want to cache)
+# This layer takes ~5-10 minutes to download on first build but is
+# cached in the base image, so app builds don't need to wait.
+RUN pip install torch --index-url https://download.pytorch.org/whl/cu121
+
+# Set working directory
+WORKDIR /app
+
+# Labels for image metadata
+LABEL org.opencontainers.image.title="SME Base Image" \
+      org.opencontainers.image.description="CUDA 12.1 + Python 3.11 + PyTorch base for SME Research Assistant" \
+      org.opencontainers.image.source="https://github.com/YOUR_ORG/sme" \
+      sme.pytorch.cuda="cu121" \
+      sme.python.version="3.11"

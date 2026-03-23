@@ -297,6 +297,137 @@ def _resume_bm25_indexing(paper_store: PaperStore, bm25_index, vector_store) -> 
     return total_indexed
 
 
+def _resume_bm25_async(
+    paper_store: PaperStore,
+    bm25_queue,
+    vector_store,
+    stop_event: Event
+) -> None:
+    """
+    Background thread that resumes BM25 indexing without blocking the pipeline.
+
+    Instead of holding a Tantivy writer and blocking, this function:
+    1. Fetches unindexed papers in batches from SQLite
+    2. Retrieves chunk texts from Qdrant
+    3. Queues BM25IndexItem objects to the same queue that BM25Worker consumes
+
+    This allows the pipeline to start immediately while resume runs in parallel.
+    The BM25Worker handles both resume items AND live pipeline items concurrently.
+
+    Args:
+        paper_store: PaperStore instance
+        bm25_queue: Queue that BM25Worker consumes from
+        vector_store: QdrantVectorStore for fetching chunk texts
+        stop_event: Event to signal early termination
+    """
+    from qdrant_client import models
+    from src.pipeline.bm25_worker import BM25IndexItem
+
+    batch_size = 100  # Smaller batches for smoother interleaving with live items
+    total_queued = 0
+
+    logger.info("[BM25-RESUME-ASYNC] Starting background resume thread")
+
+    try:
+        # Get Qdrant client once
+        try:
+            client = vector_store._get_client()
+            collection = vector_store.collection_name
+        except Exception as e:
+            logger.error(f"[BM25-RESUME-ASYNC] Failed to get Qdrant client: {e}")
+            return
+
+        while not stop_event.is_set():
+            # Get next batch of unindexed papers
+            unindexed = paper_store.get_unindexed_bm25_papers(limit=batch_size)
+            if not unindexed:
+                logger.info(f"[BM25-RESUME-ASYNC] Complete - queued {total_queued} papers for indexing")
+                break
+
+            logger.info(f"[BM25-RESUME-ASYNC] Processing batch of {len(unindexed)} papers...")
+
+            for paper_id in unindexed:
+                if stop_event.is_set():
+                    logger.info("[BM25-RESUME-ASYNC] Stop signal received, exiting")
+                    return
+
+                try:
+                    # Extract DOI value from unique_id
+                    doi_value = paper_id
+                    if paper_id.startswith("doi:"):
+                        doi_value = paper_id[4:]
+                    elif paper_id.startswith("arxiv:"):
+                        doi_value = paper_id[6:]
+
+                    # Fetch chunks from Qdrant
+                    chunk_ids = []
+                    texts = []
+                    offset = None
+
+                    while True:
+                        results, next_offset = client.scroll(
+                            collection_name=collection,
+                            limit=100,
+                            offset=offset,
+                            scroll_filter=models.Filter(
+                                must=[models.FieldCondition(
+                                    key="doi",
+                                    match=models.MatchValue(value=doi_value)
+                                )]
+                            ),
+                            with_payload=True,
+                            with_vectors=False,
+                        )
+
+                        if not results:
+                            break
+
+                        for point in results:
+                            payload = point.payload or {}
+                            text = payload.get("text", "")
+                            if text.strip():
+                                chunk_ids.append(str(point.id))
+                                texts.append(text)
+
+                        if next_offset is None:
+                            break
+                        offset = next_offset
+
+                    if chunk_ids:
+                        # Create BM25IndexItem and queue it
+                        bm25_item = BM25IndexItem(
+                            paper_unique_id=paper_id,
+                            chunk_ids=chunk_ids,
+                            texts=texts
+                        )
+
+                        # Queue with backpressure - if queue is full, wait briefly
+                        while not stop_event.is_set():
+                            try:
+                                bm25_queue.put(bm25_item, timeout=2.0)
+                                total_queued += 1
+                                break
+                            except Exception:
+                                # Queue full, wait and retry
+                                logger.debug("[BM25-RESUME-ASYNC] Queue full, waiting...")
+                                continue
+                    else:
+                        # No chunks found - mark as indexed to prevent infinite loop
+                        paper_store.mark_bm25_indexed([paper_id])
+                        logger.warning(f"[BM25-RESUME-ASYNC] No chunks found for {paper_id}, marked as indexed")
+
+                except Exception as e:
+                    logger.warning(f"[BM25-RESUME-ASYNC] Failed to process {paper_id}: {e}")
+
+            # Small delay between batches to avoid overwhelming the queue
+            time.sleep(0.1)
+
+    except Exception as e:
+        logger.error(f"[BM25-RESUME-ASYNC] Fatal error: {e}", exc_info=True)
+    finally:
+        logger.info(f"[BM25-RESUME-ASYNC] Thread stopped | queued={total_queued}")
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Manual Import Handler
 # ──────────────────────────────────────────────────────────────────────────────
@@ -553,11 +684,12 @@ def run_pipeline(args):
             )
             logger.info("[STARTUP] BM25 Tantivy index loaded for concurrent indexing")
 
-            # Resume indexing for papers that are embedded but not BM25 indexed
-            logger.info("[STARTUP] Checking for unindexed BM25 papers...")
-            resumed = _resume_bm25_indexing(paper_store, bm25_index, vector_store)
-            if resumed > 0:
-                logger.info(f"[STARTUP] Resumed BM25 indexing for {resumed} papers")
+            # Check for unindexed papers (will be resumed in background after pipeline starts)
+            unindexed_count = len(paper_store.get_unindexed_bm25_papers(limit=1))
+            if unindexed_count > 0:
+                logger.info("[STARTUP] BM25 resume will run in background (non-blocking)")
+            else:
+                logger.info("[STARTUP] No BM25 resume needed")
 
         except Exception as e:
             logger.warning(f"[STARTUP] Failed to initialize BM25 index: {e}")
@@ -707,6 +839,20 @@ def run_pipeline(args):
 
     signal.signal(signal.SIGTERM, _handle_sigterm)
 
+    # ── Start BM25 Resume Background Thread (if needed) ──
+    bm25_resume_thread = None
+    if bm25_enabled and bm25_index is not None and pipeline.bm25_queue is not None:
+        unindexed_count = len(paper_store.get_unindexed_bm25_papers(limit=1))
+        if unindexed_count > 0:
+            bm25_resume_thread = Thread(
+                target=_resume_bm25_async,
+                args=(paper_store, pipeline.bm25_queue, vector_store, stop_event),
+                daemon=True,
+                name="BM25ResumeWorker"
+            )
+            bm25_resume_thread.start()
+            logger.info("[STARTUP] BM25 resume thread started in background")
+
     # ── Run Manual Import (if enabled) ──
     if getattr(args, 'manual', False):
         manual_count = run_manual_import(paper_store, config)
@@ -795,6 +941,15 @@ def run_pipeline(args):
         sys.exit(1)
     finally:
         monitor.stop(graceful=True)
+
+        # Wait for BM25 resume thread to finish (if running)
+        if bm25_resume_thread is not None and bm25_resume_thread.is_alive():
+            logger.info("[SHUTDOWN] Waiting for BM25 resume thread...")
+            stop_event.set()  # Signal resume thread to stop
+            bm25_resume_thread.join(timeout=10.0)
+            if bm25_resume_thread.is_alive():
+                logger.warning("[SHUTDOWN] BM25 resume thread did not stop gracefully")
+
         # Always clean up failed manual imports (regardless of --manual flag)
         try:
             import_dir = Path(config.get('system', {}).get('manual_import_dir', 'DataBase/ManualImport'))

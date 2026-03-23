@@ -226,6 +226,9 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          # Use pre-baked base image for app service (contains CUDA + PyTorch)
+          build-args: |
+            ${{ matrix.service == 'app' && format('BASE_IMAGE=ghcr.io/{0}/base:latest', github.repository) || '' }}
 
       - name: Scan image for vulnerabilities
         uses: aquasecurity/trivy-action@master
