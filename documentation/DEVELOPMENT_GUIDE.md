@@ -55,6 +55,34 @@ streamlit run app/main.py
 
 ### Docker Development
 
+**Fast Development Workflow (Recommended):**
+
+For code-only changes (no `requirements.txt` changes), use bind mounts for instant updates:
+
+```bash
+# Start with development overrides (bind mounts source code)
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+
+# After code changes, just restart (no rebuild needed!)
+docker compose restart app
+
+# View logs
+docker compose logs -f app
+```
+
+**When to Rebuild:**
+
+Only rebuild when `requirements.txt` changes:
+
+```bash
+# Rebuild (uses layer caching - fast if base image exists)
+docker compose build app && docker compose up -d app
+```
+
+**IMPORTANT:** Never use `--no-cache` unless absolutely necessary - it bypasses all caching and re-downloads PyTorch (~2.5GB).
+
+**Full Rebuild (rare):**
+
 ```bash
 # Build all services
 docker compose build
@@ -64,10 +92,6 @@ docker compose up -d
 
 # View logs
 docker compose logs -f app
-
-# Rebuild after code changes
-docker compose build app
-docker compose up -d app
 ```
 
 ### IDE Configuration
@@ -132,6 +156,10 @@ src/
 │
 ├── embedding/           # Vector embeddings
 │   └── embedder.py      # Ollama embedding client
+│
+├── pipeline/            # Concurrent processing
+│   ├── concurrent_pipeline.py  # Main pipeline orchestrator
+│   └── bm25_worker.py   # Background BM25 indexing
 │
 └── storage/             # Database operations
     ├── paper_db.py      # Paper metadata CRUD
@@ -633,6 +661,51 @@ FLUSHALL
 
 ```bash
 docker exec -it sme_app python scripts/rebuild_bm25.py
+```
+
+### Checking BM25 Indexing Status
+
+```bash
+# Check papers needing BM25 indexing
+docker exec -it sme_app python -c "
+from src.storage.paper_store import PaperStore
+store = PaperStore('data/sme.db')
+unindexed = store.get_unindexed_bm25_papers(limit=10)
+print(f'Papers needing BM25 indexing: {len(unindexed)}')
+"
+
+# Check Tantivy index document count
+docker exec -it sme_app python -c "
+from src.indexing.bm25_index import create_bm25_index
+bm25 = create_bm25_index('data/bm25_index_tantivy', use_tantivy=True)
+searcher = bm25.tantivy_index.searcher()
+print(f'Tantivy documents: {searcher.num_docs}')
+"
+```
+
+### Verifying Tantivy Writer Lock
+
+If you see "LockBusy" errors, verify the writer is being released:
+
+```bash
+docker exec -it sme_app python -c "
+from src.indexing.bm25_index import create_bm25_index
+import gc
+
+bm25 = create_bm25_index('data/bm25_index_tantivy', use_tantivy=True)
+
+# Acquire and release writer
+writer = bm25.tantivy_index.writer(heap_size=64*1024*1024)
+del writer
+gc.collect()
+bm25.tantivy_index.reload()
+
+# Should succeed - lock released
+writer2 = bm25.tantivy_index.writer(heap_size=64*1024*1024)
+print('Lock released correctly!')
+del writer2
+gc.collect()
+"
 ```
 
 ### Migrating the Database

@@ -171,25 +171,50 @@ chunking:
 }
 ```
 
-### Stage 5: Embed
+### Stage 5: Embed (with BM25 Streaming)
 
-**Module:** `src/indexing/indexer.py`
+**Module:** `src/pipeline/concurrent_pipeline.py`, `src/pipeline/bm25_worker.py`
 **Model:** qwen3-embedding:8b (via Ollama)
 **Vector Dimension:** 4096
 
 **Data Flow:**
 ```
-Chunks ──► Batch Embedding ──► Qdrant Upsert ──► BM25 Index Update
-               │                    │                   │
-          Ollama API          sme_papers_v2        Tantivy index
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    CONCURRENT EMBEDDING + BM25 PIPELINE                  │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  Chunks ──► EmbedWorker ──► Qdrant Upsert                               │
+│                 │                │                                       │
+│            Ollama API      sme_papers_v2                                │
+│                                  │                                       │
+│                          on_success callback                            │
+│                                  │                                       │
+│                                  ▼                                       │
+│                            bm25_queue ◄─────── Resume Thread            │
+│                                  │             (background)              │
+│                                  ▼                                       │
+│                            BM25Worker                                   │
+│                                  │                                       │
+│                     ┌────────────┴────────────┐                         │
+│                     ▼                         ▼                         │
+│              Tantivy Index             SQLite (bm25_indexed=1)          │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
 **Process:**
 1. Load chunks from PKL files
 2. Batch embed via Ollama (batch_size=64)
 3. Upsert to Qdrant with full payload including `user_id`
-4. Update Tantivy BM25 index
-5. Update `status='embedded'`
+4. On successful Qdrant upsert, queue item to `bm25_queue`
+5. BM25Worker (separate thread) consumes queue and indexes to Tantivy
+6. Mark `bm25_indexed=1` in SQLite after successful Tantivy commit
+7. Update `status='embedded'`
+
+**BM25 Streaming Benefits:**
+- Embedding pipeline never blocked by BM25 indexing
+- GPU stays busy processing new papers
+- Resume thread handles backlog in background at startup
+- Batch commits to Tantivy (50 papers or 5s timeout) for efficiency
 
 **Qdrant Point:**
 ```json
@@ -208,6 +233,27 @@ Chunks ──► Batch Embedding ──► Qdrant Upsert ──► BM25 Index Up
     }
 }
 ```
+
+**BM25IndexItem (Queue Data Transfer):**
+```python
+@dataclass
+class BM25IndexItem:
+    paper_unique_id: str      # e.g., "doi:10.1234/example"
+    chunk_ids: List[str]      # ["chunk_0", "chunk_1", ...]
+    texts: List[str]          # Chunk contents for BM25 indexing
+```
+
+**BM25 Resume at Startup:**
+
+On container restart, any papers with `status='embedded'` but `bm25_indexed=0` are automatically queued:
+
+```sql
+-- Papers needing BM25 indexing
+SELECT unique_id FROM papers
+WHERE status = 'embedded' AND bm25_indexed = 0;
+```
+
+The resume thread runs in the background, allowing the main pipeline to start immediately processing new papers.
 
 ---
 

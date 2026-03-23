@@ -120,6 +120,9 @@ SME/
 │   ├── acquisition_config.yaml  # Paper discovery settings
 │   └── depth_presets.yaml       # Research depth presets
 │
+├── docker/                       # Docker build assets
+│   └── Dockerfile.base          # Pre-baked base image (CUDA + PyTorch)
+│
 ├── data/                         # Runtime data (gitignored)
 │   ├── auth.db                  # User authentication database
 │   ├── sme.db                   # Paper metadata database
@@ -171,6 +174,10 @@ SME/
 │   │   ├── bm25_index.py       # Standard BM25 index
 │   │   └── chunker.py          # Document chunking
 │   │
+│   ├── pipeline/                # Concurrent processing pipeline
+│   │   ├── concurrent_pipeline.py  # Main pipeline orchestrator
+│   │   └── bm25_worker.py      # Background BM25 indexing worker
+│   │
 │   ├── ingestion/               # PDF processing
 │   │   ├── pdf_parser.py       # PDF text extraction
 │   │   └── quality_scorer.py   # Parse quality scoring
@@ -197,6 +204,7 @@ SME/
 │       └── cache.py            # Redis caching
 │
 ├── docker-compose.yml            # Service orchestration
+├── docker-compose.dev.yml        # Development overrides (bind mounts)
 ├── Dockerfile                    # Main app container
 ├── .env.example                  # Environment template
 ├── requirements.txt              # Python dependencies
@@ -258,7 +266,65 @@ PDF → Parse (pymupdf4llm) → Chunk (800 tokens) → Embed (Qwen3) → Store (
 - `HierarchicalChunker` - Section-aware chunking
 - `Indexer` - Orchestrates embedding and storage
 
-### 4. Generation (`src/generation/`)
+### 4. BM25 Streaming Pipeline (`src/pipeline/`)
+
+**Purpose:** Non-blocking BM25 indexing that runs in parallel with the embedding pipeline
+
+**Architecture:**
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    CONCURRENT PIPELINE ARCHITECTURE                      │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  Papers ──► ChunkWorker ──► EmbedWorker ──► StoreWorker                 │
+│                                                   │                      │
+│                                         on_success callback             │
+│                                                   │                      │
+│                                                   ▼                      │
+│                                            bm25_queue                    │
+│                                                   │                      │
+│  Resume Thread ────────────────────────────────► │                      │
+│  (background)                                     │                      │
+│                                                   ▼                      │
+│                                            BM25Worker                    │
+│                                                   │                      │
+│                                                   ▼                      │
+│                                        Tantivy Index + SQLite            │
+│                                        (bm25_indexed=1)                  │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+**Key Components:**
+
+| Component | Purpose |
+|-----------|---------|
+| `BM25Worker` | Background worker consuming from bm25_queue |
+| `BM25IndexItem` | Data transfer object (paper_id, chunk_ids, texts) |
+| `bm25_queue` | Thread-safe queue connecting StoreWorker → BM25Worker |
+| Resume Thread | Async background thread for indexing backlog at startup |
+
+**Features:**
+- **Non-blocking startup:** Pipeline starts immediately, resume runs in background
+- **Batch commits:** Accumulates items before Tantivy commit (default: 50 papers or 5s timeout)
+- **SQLite tracking:** `bm25_indexed` column enables resume on restart
+- **Graceful shutdown:** Flushes remaining items on sentinel signal
+
+**Tantivy Writer Lock Management:**
+```python
+# CRITICAL: Writer must be explicitly released to prevent deadlock
+writer = None
+try:
+    writer = bm25_index.tantivy_index.writer(heap_size=64*1024*1024)
+    # Add documents, commit...
+finally:
+    if writer is not None:
+        del writer
+        import gc
+        gc.collect()
+        bm25_index.tantivy_index.reload()
+```
+
+### 5. Generation (`src/generation/`)
 
 **Purpose:** LLM-powered response generation with citations
 

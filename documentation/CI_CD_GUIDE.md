@@ -8,13 +8,14 @@
 ## Table of Contents
 
 1. [Overview](#overview)
-2. [CI Pipeline](#ci-pipeline)
-3. [CD Pipeline](#cd-pipeline)
-4. [Auto-Deploy Webhook](#auto-deploy-webhook)
-5. [GitHub Container Registry](#github-container-registry)
-6. [Secrets Management](#secrets-management)
-7. [Monitoring and Debugging](#monitoring-and-debugging)
-8. [Rollback Procedures](#rollback-procedures)
+2. [Base Image Build](#base-image-build)
+3. [CI Pipeline](#ci-pipeline)
+4. [CD Pipeline](#cd-pipeline)
+5. [Auto-Deploy Webhook](#auto-deploy-webhook)
+6. [GitHub Container Registry](#github-container-registry)
+7. [Secrets Management](#secrets-management)
+8. [Monitoring and Debugging](#monitoring-and-debugging)
+9. [Rollback Procedures](#rollback-procedures)
 
 ---
 
@@ -57,6 +58,85 @@ Developer Push → CI Pipeline → Build Images → Push to GHCR
                                                     ▼
                     docker compose pull && docker compose up -d
 ```
+
+---
+
+## Base Image Build
+
+### Purpose
+
+The base image pre-bakes CUDA + Python 3.11 + PyTorch to eliminate the ~5-10 minute PyTorch download on every CI build.
+
+### Location: `.github/workflows/base-image.yml`
+
+### Trigger Events
+
+```yaml
+on:
+  # Manual trigger with optional force rebuild
+  workflow_dispatch:
+    inputs:
+      force_rebuild:
+        description: 'Force rebuild even if unchanged'
+        type: boolean
+
+  # Rebuild when base Dockerfile changes
+  push:
+    branches: [main]
+    paths:
+      - 'docker/Dockerfile.base'
+      - '.github/workflows/base-image.yml'
+
+  # Weekly rebuild to pick up security updates
+  schedule:
+    - cron: '0 3 * * 0'  # 3 AM UTC every Sunday
+```
+
+### Base Image Contents
+
+The base image (`docker/Dockerfile.base`) includes:
+
+| Component | Version | Purpose |
+|-----------|---------|---------|
+| CUDA | 12.1.1 | GPU acceleration |
+| Ubuntu | 22.04 | Base OS |
+| Python | 3.11 | Runtime |
+| PyTorch | Latest (cu121) | Deep learning framework |
+
+### Image Tags
+
+| Tag | Description |
+|-----|-------------|
+| `latest` | Most recent build from main branch |
+| `cu121-py311` | CUDA 12.1 + Python 3.11 identifier |
+| `<sha>` | Git commit SHA for traceability |
+
+### Usage in CI
+
+The main app Dockerfile extends from the base image:
+
+```dockerfile
+ARG BASE_IMAGE=ghcr.io/akamel01/papyrus-ai/base:latest
+FROM ${BASE_IMAGE}
+
+# PyTorch already installed - just install remaining deps
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+```
+
+The CI workflow passes the base image as a build argument:
+
+```yaml
+build-args: |
+  ${{ matrix.service == 'app' && format('BASE_IMAGE=ghcr.io/{0}/base:latest', github.repository) || '' }}
+```
+
+### Build Time Impact
+
+| Scenario | Without Base Image | With Base Image |
+|----------|-------------------|-----------------|
+| Cache hit | ~2-3 min | ~2-3 min |
+| Cache miss | ~15-20 min | ~3-5 min |
 
 ---
 
@@ -327,10 +407,13 @@ All images are published to GitHub Container Registry (GHCR):
 
 | Service | Image URL |
 |---------|-----------|
+| **Base** | `ghcr.io/akamel01/papyrus-ai/base` |
 | App | `ghcr.io/akamel01/papyrus-ai/app` |
 | Auth | `ghcr.io/akamel01/papyrus-ai/auth` |
 | Dashboard Backend | `ghcr.io/akamel01/papyrus-ai/dashboard-backend` |
 | Dashboard UI | `ghcr.io/akamel01/papyrus-ai/dashboard-ui` |
+
+**Note:** The base image contains CUDA + Python + PyTorch and is rebuilt weekly or when `docker/Dockerfile.base` changes. The app service extends from the base image to speed up builds.
 
 ### Pulling Images
 
