@@ -60,7 +60,7 @@ jobs:
 
       - name: Notify rollback
         if: vars.SLACK_WEBHOOK_URL != ''
-        uses: slackapi/slack-github-action@v1
+        uses: slackapi/slack-github-action@v3
         with:
           payload: |
             {

@@ -38,7 +38,7 @@ jobs:
 
       - name: Notify deployment start
         if: vars.SLACK_WEBHOOK_URL != ''
-        uses: slackapi/slack-github-action@v1
+        uses: slackapi/slack-github-action@v3
         with:
           payload: |
             {
@@ -149,7 +149,7 @@ jobs:
     steps:
       - name: Notify success
         if: needs.deploy.result == 'success' && vars.SLACK_WEBHOOK_URL != ''
-        uses: slackapi/slack-github-action@v1
+        uses: slackapi/slack-github-action@v3
         with:
           payload: |
             {
@@ -170,7 +170,7 @@ jobs:
 
       - name: Notify failure
         if: needs.deploy.result == 'failure' && vars.SLACK_WEBHOOK_URL != ''
-        uses: slackapi/slack-github-action@v1
+        uses: slackapi/slack-github-action@v3
         with:
           payload: |
             {
