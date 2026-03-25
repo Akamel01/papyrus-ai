@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { Upload, FileText, Trash2, Play, CheckCircle, XCircle, Clock, Loader2, AlertCircle } from 'lucide-react'
-import { documents, DocumentInfo } from '../lib/api'
+import { documents } from '../lib/api'
+import type { DocumentInfo } from '../lib/api'
 import { dashboardWS } from '../lib/websocket'
 
 export default function MyDocuments() {
@@ -11,6 +12,7 @@ export default function MyDocuments() {
     const [selected, setSelected] = useState<Set<string>>(new Set())
     const [dragOver, setDragOver] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const [processingIds, setProcessingIds] = useState<Set<string>>(new Set()) // Track docs being processed
     const fileInputRef = useRef<HTMLInputElement>(null)
 
     const fetchDocuments = useCallback(async () => {
@@ -20,7 +22,10 @@ export default function MyDocuments() {
             setCounts(data.counts)
             setError(null)
         } catch (e) {
-            setError(e instanceof Error ? e.message : 'Failed to load documents')
+            console.error('Documents API error:', e)
+            // Show more details for debugging
+            const msg = e instanceof Error ? e.message : 'Failed to load documents'
+            setError(`${msg} — Check browser console for details`)
         } finally {
             setLoading(false)
         }
@@ -71,15 +76,40 @@ export default function MyDocuments() {
     }
 
     const handleProcess = async (docId: string) => {
+        // Immediately mark as processing for visual feedback
+        setProcessingIds(prev => new Set(prev).add(docId))
+        // Optimistically update the doc status in UI
+        setDocs(prev => prev.map(doc =>
+            doc.document_id === docId ? { ...doc, status: 'processing' as const } : doc
+        ))
+
         try {
             await documents.process(docId)
             fetchDocuments()
         } catch (e) {
             setError(e instanceof Error ? e.message : 'Failed to process document')
+            // Revert optimistic update on error
+            setDocs(prev => prev.map(doc =>
+                doc.document_id === docId ? { ...doc, status: 'pending' as const } : doc
+            ))
+        } finally {
+            setProcessingIds(prev => {
+                const next = new Set(prev)
+                next.delete(docId)
+                return next
+            })
         }
     }
 
     const handleProcessAll = async () => {
+        // Mark all pending docs as processing for visual feedback
+        const pendingIds = docs.filter(d => d.status === 'pending').map(d => d.document_id)
+        setProcessingIds(prev => new Set([...prev, ...pendingIds]))
+        // Optimistically update all pending docs to processing
+        setDocs(prev => prev.map(doc =>
+            doc.status === 'pending' ? { ...doc, status: 'processing' as const } : doc
+        ))
+
         try {
             const result = await documents.processAll()
             setError(null)
@@ -88,6 +118,16 @@ export default function MyDocuments() {
             }
         } catch (e) {
             setError(e instanceof Error ? e.message : 'Failed to process documents')
+            // Revert optimistic updates on error
+            setDocs(prev => prev.map(doc =>
+                pendingIds.includes(doc.document_id) ? { ...doc, status: 'pending' as const } : doc
+            ))
+        } finally {
+            setProcessingIds(prev => {
+                const next = new Set(prev)
+                pendingIds.forEach(id => next.delete(id))
+                return next
+            })
         }
     }
 
@@ -186,11 +226,12 @@ export default function MyDocuments() {
                 </div>
                 <button
                     onClick={handleProcessAll}
-                    disabled={counts.pending === 0}
+                    disabled={counts.pending === 0 || counts.processing > 0}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer disabled:opacity-40"
                     style={{ background: 'var(--color-accent)', color: '#fff' }}
                 >
-                    <Play size={14} /> Process All ({counts.pending})
+                    <Play size={14} />
+                    {counts.processing > 0 ? `Processing (${counts.processing})` : `Process All (${counts.pending})`}
                 </button>
             </div>
 
@@ -307,11 +348,16 @@ export default function MyDocuments() {
                                 {doc.status === 'pending' && (
                                     <button
                                         onClick={() => handleProcess(doc.document_id)}
-                                        className="p-1.5 rounded hover:bg-blue-500/10 cursor-pointer"
+                                        disabled={processingIds.has(doc.document_id)}
+                                        className="p-1.5 rounded hover:bg-blue-500/10 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                                         style={{ color: 'var(--color-accent)' }}
-                                        title="Process"
+                                        title={processingIds.has(doc.document_id) ? "Processing..." : "Process"}
                                     >
-                                        <Play size={14} />
+                                        {processingIds.has(doc.document_id) ? (
+                                            <Loader2 size={14} className="animate-spin" />
+                                        ) : (
+                                            <Play size={14} />
+                                        )}
                                     </button>
                                 )}
                                 {doc.status === 'failed' && doc.error_message && (
