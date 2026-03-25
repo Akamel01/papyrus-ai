@@ -21,6 +21,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 # ─── Fallback: Install deps if using raw CUDA image ───
 # These layers are skipped if base image already has them (layer caching)
+SHELL ["/bin/bash", "-c"]
 RUN if ! command -v python3.11 &> /dev/null; then \
         apt-get update && apt-get install -y software-properties-common curl gpg-agent && \
         add-apt-repository -y ppa:deadsnakes/ppa && \
@@ -39,14 +40,20 @@ RUN if ! python -c "import torch" 2>/dev/null; then \
         pip install torch --index-url https://download.pytorch.org/whl/cu121; \
     fi
 
+# Reset shell to default
+SHELL ["/bin/sh", "-c"]
+
 # Set working directory
 WORKDIR /app
 
 # Install remaining Python dependencies
-# (torch requirement already satisfied in base, pip skips it)
+# Use cu121 index for PyTorch to ensure CUDA 12.1 compatibility (works with driver 576.x)
+# Default PyPI torch resolves to cu130 which requires CUDA 13.0 / newer drivers
 COPY requirements.txt .
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install --ignore-installed blinker --ignore-installed zipp -r requirements.txt
+    pip install --ignore-installed blinker --ignore-installed zipp \
+    --extra-index-url https://download.pytorch.org/whl/cu121 \
+    -r requirements.txt
 
 # Copy source code
 COPY src ./src
