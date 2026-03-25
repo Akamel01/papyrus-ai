@@ -46,12 +46,34 @@ pip install -r requirements-dev.txt  # Dev dependencies
 cp .env.example .env
 # Edit .env with your secrets
 
+# Install git hooks (IMPORTANT: enables auto-sync for config templates)
+./scripts/install-hooks.sh
+
 # Start infrastructure services only
 docker compose up -d redis qdrant ollama
 
 # Run the app locally (outside Docker)
 streamlit run app/main.py
 ```
+
+### Git Hooks Setup
+
+The project uses a pre-commit hook to automatically sync config templates when you commit changes. This ensures the self-healing mount system always has up-to-date templates.
+
+```bash
+# One-time setup (run after cloning)
+./scripts/install-hooks.sh
+
+# What it does:
+# When you commit changes to config files, templates auto-update:
+git add services/caddy/Caddyfile
+git commit -m "Update Caddy routing"
+# Output: [hook] Synced: services/caddy/Caddyfile -> .templates/Caddyfile
+```
+
+**Tracked config files:**
+- `services/caddy/Caddyfile` → `.templates/Caddyfile`
+- `config/cloudflared-config.yml` → `.templates/cloudflared-config.yml`
 
 ### Docker Development
 
@@ -191,10 +213,36 @@ app/
 ├── main.py              # Streamlit entry point
 ├── components/          # UI components
 │   ├── chat.py         # Chat interface
-│   ├── sidebar.py      # Sidebar controls
+│   ├── sidebar.py      # Sidebar controls (includes knowledge source toggle)
+│   ├── sidebar_config.py # Sidebar configuration dataclass
+│   ├── quick_upload.py # Session-only document uploads
+│   ├── rag_wrapper.py  # RAG pipeline wrappers
 │   └── auth_ui.py      # Login/register forms
 └── pages/               # Streamlit pages
     └── settings.py     # User settings
+```
+
+### Dashboard Module
+
+```
+dashboard/
+├── backend/
+│   ├── main.py         # FastAPI entry point
+│   ├── auth.py         # Authentication utilities
+│   └── routes/
+│       ├── documents_routes.py  # User document CRUD API
+│       ├── config_routes.py
+│       ├── run_routes.py
+│       └── ws_routes.py         # WebSocket events
+└── frontend/
+    └── src/
+        ├── App.tsx
+        ├── lib/api.ts           # API client with documents methods
+        └── pages/
+            ├── MyDocuments.tsx  # User document management UI
+            ├── Dashboard.tsx
+            ├── RunControls.tsx
+            └── ConfigEditor.tsx
 ```
 
 ---
@@ -374,15 +422,84 @@ def render_new_feature(user_id: str):
         perform_action(user_id)
 ```
 
-2. **Integrate in main.py**:
+2. **Get current user** - Use `get_current_user()` from `app/auth_helper.py`:
+
+```python
+from app.auth_helper import get_current_user
+
+# Returns an AuthUser dataclass (NOT a dict)
+current_user = get_current_user()
+
+# AuthUser attributes:
+#   - current_user.id           # User's unique ID (string)
+#   - current_user.email        # User's email address
+#   - current_user.display_name # Display name (may be None)
+#   - current_user.role         # User role (viewer/operator/admin)
+
+# CORRECT - Use attribute access
+user_id = current_user.id if current_user else None
+
+# WRONG - AuthUser is NOT a dict, this will fail:
+# user_id = current_user.get("user_id")  # AttributeError!
+# user_id = current_user["id"]           # TypeError!
+```
+
+3. **Integrate in main.py**:
 
 ```python
 # app/main.py
+from app.auth_helper import get_current_user
 from app.components.new_feature import render_new_feature
 
 # In the main rendering function
-if st.session_state.get("show_new_feature"):
-    render_new_feature(user_id=current_user["user_id"])
+current_user = get_current_user()
+if current_user and st.session_state.get("show_new_feature"):
+    render_new_feature(user_id=current_user.id)
+```
+
+### Working with Knowledge Sources
+
+When adding features that interact with retrieval, respect the knowledge source toggle:
+
+```python
+# app/components/sidebar_config.py
+@dataclass
+class SidebarConfig:
+    knowledge_source: str = "both"  # "shared_only", "user_only", "both"
+    # ... other fields
+
+# In retrieval code, pass knowledge_source
+results = hybrid_search.search(
+    query=query,
+    user_id=user_id,
+    knowledge_source=config.knowledge_source  # Respects user's toggle
+)
+```
+
+### Adding Quick Upload Support
+
+To make a component work with Quick Uploads:
+
+```python
+# Always include quick uploads in context (they're always active)
+from app.components.quick_upload import get_quick_upload_context
+
+def build_context(query: str, config: SidebarConfig, user_id: str) -> str:
+    context_parts = []
+
+    # 1. Quick Uploads - ALWAYS included (highest priority)
+    quick_context = get_quick_upload_context()
+    if quick_context:
+        context_parts.append(quick_context)
+
+    # 2. Retrieved documents (filtered by knowledge_source)
+    results = hybrid_search.search(
+        query, user_id=user_id, knowledge_source=config.knowledge_source
+    )
+    for r in results:
+        context_parts.append(r.text)
+
+    return "\n\n---\n\n".join(context_parts)
 ```
 
 ---
@@ -657,6 +774,24 @@ FLUSHALL
 
 ## Common Tasks
 
+### Fixing Docker Mount Corruption
+
+If you see errors like "not a directory: Are you trying to mount a directory onto a file?":
+
+```bash
+# Option 1: Let init-validator auto-repair (recommended)
+docker-compose up -d  # init-validator runs automatically
+
+# Option 2: Manual recovery script
+./scripts/fix-mounts.sh
+
+# Option 3: Manual fix
+docker stop sme_caddy sme_tunnel
+rm -rf services/caddy/Caddyfile  # If it's a directory
+git checkout services/caddy/Caddyfile  # Restore from git
+docker-compose up -d caddy cloudflared
+```
+
 ### Rebuilding the BM25 Index
 
 ```bash
@@ -758,6 +893,57 @@ docker compose up -d
 4. Update Caddyfile for routing (if needed)
 5. Add health check endpoint
 
+### Working with User Documents API
+
+```python
+# Testing document upload
+import requests
+
+token = "your_jwt_token"
+headers = {"Authorization": f"Bearer {token}"}
+
+# Upload document
+with open("paper.pdf", "rb") as f:
+    response = requests.post(
+        "http://localhost:8400/api/documents/upload",
+        files={"file": ("paper.pdf", f, "application/pdf")},
+        headers=headers
+    )
+    doc_id = response.json()["document_id"]
+
+# Trigger processing
+response = requests.post(
+    f"http://localhost:8400/api/documents/{doc_id}/process",
+    headers=headers
+)
+
+# List documents
+response = requests.get(
+    "http://localhost:8400/api/documents",
+    headers=headers
+)
+documents = response.json()["documents"]
+
+# Delete document (cascading)
+response = requests.delete(
+    f"http://localhost:8400/api/documents/{doc_id}",
+    headers=headers
+)
+```
+
+### Checking User Document Processing Status
+
+```bash
+# Check processing queue
+docker exec -it sme_dashboard_api python -c "
+from routes.documents_routes import _get_paper_store
+store = _get_paper_store()
+for user_id in ['test-user']:
+    pending = store.get_pending_user_papers(user_id)
+    print(f'User {user_id}: {len(pending)} pending documents')
+"
+```
+
 ---
 
 ## Code Style Guidelines
@@ -833,6 +1019,177 @@ def delete(self, doi: str) -> None:
 
 **WARNING:** Do NOT use `src/retrieval/parallel_search.py` - it is deprecated
 and lacks user_id support. Use `src/retrieval/sequential/search.py` instead.
+
+### Streamlit Best Practices
+
+**CRITICAL: Avoid Module-Level Execution**
+
+Streamlit page modules should ONLY define functions, never execute them at module level. Module-level execution causes functions to run during import, leading to duplicate rendering and widget key conflicts.
+
+```python
+# WRONG - Module-level execution
+def render_page():
+    st.form("my_form")
+    # ... page content
+
+render_page()  # ← DO NOT DO THIS!
+
+# CORRECT - Only define functions
+def render_page():
+    st.form("my_form")
+    # ... page content
+
+# Function is called explicitly by main.py or other entry points
+```
+
+**Why this matters:**
+- When `main.py` imports a page module, ALL module-level code executes
+- If a page renders itself at module level AND is called explicitly, it renders twice
+- This causes `DuplicateWidgetID` errors and unexpected behavior
+- Streamlit multipage apps should have a single entry point that controls page rendering
+
+**Widget Keys:**
+- Use unique, static keys for forms and widgets when possible
+- Only use dynamic keys if the same widget needs multiple instances in one session
+- Never rely on dynamic keys to "fix" duplicate rendering - fix the root cause instead
+
+---
+
+---
+
+## Unified Authentication System
+
+### Overview
+
+SME uses a unified authentication system that allows users to share credentials between the Chat UI (Streamlit) and the Dashboard (React). Both UIs authenticate against the same Auth Service.
+
+### Login Methods
+
+Users can log in using any of these identifiers:
+
+| Identifier Type | Example | Notes |
+|----------------|---------|-------|
+| Email | `ahmed.kamel@ubc.ca` | Direct email lookup |
+| Username | `AhmedKamel` | Stored in User.username column |
+| Dashboard username | `admin` | Maps to `{username}@dashboard.local` |
+
+### Default Admin Credentials
+
+```
+Username: admin     Password: admin123
+Username: AhmedKamel  Password: admin123  (for ahmed.kamel@ubc.ca)
+```
+
+### Architecture
+
+```
+┌─────────────┐     ┌─────────────┐
+│   Chat UI   │     │  Dashboard  │
+│ (Streamlit) │     │   (React)   │
+└──────┬──────┘     └──────┬──────┘
+       │                   │
+       │  /api/auth/login  │  /api/auth/internal/login
+       │                   │
+       └─────────┬─────────┘
+                 │
+         ┌───────▼───────┐
+         │ Auth Service  │
+         │  (FastAPI)    │
+         └───────┬───────┘
+                 │
+         ┌───────▼───────┐
+         │   auth.db     │
+         │   (SQLite)    │
+         └───────────────┘
+```
+
+### Session Persistence (Chat UI)
+
+The Chat UI now persists sessions across page refreshes using browser localStorage:
+
+1. **On Login**: Refresh token is saved to localStorage via JavaScript injection
+2. **On Page Load**: JavaScript checks localStorage and redirects with token in query params
+3. **On Refresh**: `init_auth_state()` reads query params and refreshes the session
+4. **On Logout**: localStorage tokens are cleared
+
+```python
+# How session restoration works in auth_helper.py
+def init_auth_state():
+    if "auth" not in st.session_state:
+        st.session_state.auth = {...}
+        _try_restore_from_storage()  # Checks query params for refresh token
+
+def _try_restore_from_storage():
+    params = st.query_params
+    stored_refresh = params.get("_auth_refresh")
+    if stored_refresh:
+        st.query_params.clear()  # Clean URL
+        st.session_state.auth["refresh_token"] = stored_refresh
+        refresh_tokens()  # Restore session
+```
+
+### Adding a New User
+
+```python
+# Via Auth Service container
+docker exec -it sme_auth python -c "
+from models import get_engine, get_session_factory, User
+from auth import hash_password
+
+engine = get_engine('sqlite:///./data/auth.db')
+SessionLocal = get_session_factory(engine)
+db = SessionLocal()
+
+user = User(
+    email='newuser@example.com',
+    username='NewUser',  # Optional: login alias
+    password_hash=hash_password('SecurePassword123!'),
+    display_name='New User',
+    role='user',  # or 'admin'
+    dashboard_role='viewer'  # admin, operator, or viewer
+)
+db.add(user)
+db.commit()
+db.close()
+"
+```
+
+### Setting a Username for Existing User
+
+```python
+docker exec -it sme_auth python -c "
+import sqlite3
+conn = sqlite3.connect('./data/auth.db')
+cursor = conn.cursor()
+cursor.execute(\"UPDATE users SET username = 'MyUsername' WHERE email = 'user@example.com'\")
+conn.commit()
+conn.close()
+"
+```
+
+### User Model Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| id | String(36) | UUID primary key |
+| email | String(255) | Unique, required, indexed |
+| username | String(100) | Unique, optional, indexed - login alias |
+| password_hash | String(255) | bcrypt hash |
+| display_name | String(100) | Display name (optional) |
+| role | String(20) | Auth role: `user` or `admin` |
+| dashboard_role | String(20) | Dashboard role: `admin`, `operator`, or `viewer` |
+| is_active | String(5) | `"true"` or `"false"` |
+
+### Auth Endpoints
+
+**Public (Chat UI)**:
+- `POST /api/auth/login` - Login with email/username + password
+- `POST /api/auth/register` - Register new account
+- `POST /api/auth/refresh` - Refresh access token
+- `GET /api/auth/me` - Get current user info
+
+**Internal (Dashboard → Auth Service)**:
+- `POST /api/auth/internal/login` - Service-to-service login (no rate limiting)
 
 ---
 

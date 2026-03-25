@@ -26,26 +26,6 @@ def render_auth_page():
     """Render the login/registration page."""
     logger.info("=== render_auth_page called ===")
 
-    # Inject JavaScript to restore auth from localStorage on page load
-    # This checks localStorage and redirects with refresh token in query params
-    st.markdown('''
-    <script>
-        (function() {
-            // Only run once per page load
-            if (window._sme_auth_checked) return;
-            window._sme_auth_checked = true;
-
-            const refreshToken = localStorage.getItem('sme_refresh_token');
-            if (refreshToken && !window.location.search.includes('_auth_refresh')) {
-                // Redirect with refresh token in query params
-                const url = new URL(window.location.href);
-                url.searchParams.set('_auth_refresh', refreshToken);
-                window.location.href = url.toString();
-            }
-        })();
-    </script>
-    ''', unsafe_allow_html=True)
-
     # Check if already authenticated
     if is_authenticated():
         logger.info("User already authenticated, rerunning")
@@ -140,10 +120,7 @@ def render_auth_page():
 
 def render_login_form():
     """Render the login form."""
-    # Use session-based unique key to avoid duplicate form key errors during redirects
-    form_key = f"login_form_{st.session_state.get('_form_instance', 0)}"
-
-    with st.form(form_key, clear_on_submit=False):
+    with st.form("login_form", clear_on_submit=False):
         st.markdown("### Welcome back")
 
         identifier = st.text_input(
@@ -235,7 +212,3 @@ def render_register_form():
                     st.rerun()
                 else:
                     st.error(message)
-
-
-# Render when loaded as a Streamlit multipage page
-render_auth_page()

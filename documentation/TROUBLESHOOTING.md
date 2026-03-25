@@ -293,6 +293,30 @@ This guide helps you solve common issues with the SME Research Assistant. Each s
 
 ---
 
+### Duplicate Login Form Error
+
+**Symptoms:**
+- Error during page load: "There are multiple identical forms with `key='login_form'`"
+- Error appears briefly during initialization then disappears
+- Login still works but error is visible momentarily
+
+**Cause:**
+This was caused by module-level execution in `app/pages/auth.py` that rendered the login form when the module was imported, and again when explicitly called by the authentication check.
+
+**Solution:**
+This issue was fixed in the codebase by:
+- Removing module-level execution from `app/pages/auth.py`
+- Removing duplicate localStorage JavaScript
+- Using static form keys instead of dynamic ones
+
+If you encounter this error, ensure you're running the latest version:
+```bash
+git pull
+docker compose restart app
+```
+
+---
+
 ### Session Timeouts
 
 **Symptoms:**
