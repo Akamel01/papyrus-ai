@@ -28,7 +28,7 @@ jobs:
     outputs:
       should_deploy: ${{ steps.check.outputs.should_deploy }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Check deployment conditions
         id: check
@@ -70,7 +70,7 @@ jobs:
       url: https://papyrus-ai.net
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Check SSH key configured
         id: check_ssh
