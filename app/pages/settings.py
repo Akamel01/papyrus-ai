@@ -114,16 +114,13 @@ def render_api_keys_section():
             col1, col2 = st.columns([3, 1])
 
             with col1:
-                status_icon = "check-circle" if has_key else "circle"
+                # Use Unicode symbols instead of SVG for better Streamlit compatibility
+                status_icon = "✓" if has_key else "○"
                 status_color = "#22c55e" if has_key else "#6b7280"
 
                 st.markdown(f"""
                 <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
-                         stroke="{status_color}" stroke-width="2">
-                        <circle cx="12" cy="12" r="10"/>
-                        {'<path d="M9 12l2 2 4-4"/>' if has_key else ''}
-                    </svg>
+                    <span style="font-size: 18px; color: {status_color}; width: 20px; text-align: center;">{status_icon}</span>
                     <span style="font-weight: 600; color: #e0e0e0;">{key_type["display"]}</span>
                     {f'<span style="color: #6b7280; font-size: 12px;">({existing["masked_value"]})</span>' if existing else ''}
                 </div>
@@ -330,11 +327,5 @@ def render_account_section(user):
                   help="Contact an administrator to delete your account")
 
 
-# Allow running as standalone page
-if __name__ == "__main__":
-    st.set_page_config(
-        page_title="Settings - SME Research Assistant",
-        page_icon="settings",
-        layout="wide"
-    )
-    render_settings_page()
+# Render when loaded as a Streamlit multipage page
+render_settings_page()

@@ -26,6 +26,26 @@ def render_auth_page():
     """Render the login/registration page."""
     logger.info("=== render_auth_page called ===")
 
+    # Inject JavaScript to restore auth from localStorage on page load
+    # This checks localStorage and redirects with refresh token in query params
+    st.markdown('''
+    <script>
+        (function() {
+            // Only run once per page load
+            if (window._sme_auth_checked) return;
+            window._sme_auth_checked = true;
+
+            const refreshToken = localStorage.getItem('sme_refresh_token');
+            if (refreshToken && !window.location.search.includes('_auth_refresh')) {
+                // Redirect with refresh token in query params
+                const url = new URL(window.location.href);
+                url.searchParams.set('_auth_refresh', refreshToken);
+                window.location.href = url.toString();
+            }
+        })();
+    </script>
+    ''', unsafe_allow_html=True)
+
     # Check if already authenticated
     if is_authenticated():
         logger.info("User already authenticated, rerunning")
@@ -120,14 +140,16 @@ def render_auth_page():
 
 def render_login_form():
     """Render the login form."""
+    # Use session-based unique key to avoid duplicate form key errors during redirects
+    form_key = f"login_form_{st.session_state.get('_form_instance', 0)}"
 
-    with st.form("login_form", clear_on_submit=False):
+    with st.form(form_key, clear_on_submit=False):
         st.markdown("### Welcome back")
 
-        email = st.text_input(
-            "Email",
-            placeholder="you@example.com",
-            key="login_email"
+        identifier = st.text_input(
+            "Username or Email",
+            placeholder="Enter username or email",
+            key="login_identifier"
         )
 
         password = st.text_input(
@@ -140,11 +162,11 @@ def render_login_form():
         submitted = st.form_submit_button("Sign In", use_container_width=True)
 
         if submitted:
-            if not email or not password:
-                st.error("Please enter both email and password")
+            if not identifier or not password:
+                st.error("Please enter your username/email and password")
             else:
                 with st.spinner("Signing in..."):
-                    success, message = login(email, password)
+                    success, message = login(identifier, password)
 
                 if success:
                     st.success(message)
@@ -215,11 +237,5 @@ def render_register_form():
                     st.error(message)
 
 
-# Allow running as standalone page
-if __name__ == "__main__":
-    st.set_page_config(
-        page_title="Login - SME Research Assistant",
-        page_icon="🔐",
-        layout="centered"
-    )
-    render_auth_page()
+# Render when loaded as a Streamlit multipage page
+render_auth_page()
