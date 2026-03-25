@@ -192,6 +192,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Prepare repository name
+        id: repo
+        run: |
+          # Convert repository name to lowercase for Docker registry compatibility
+          echo "lowercase=${GITHUB_REPOSITORY,,}" >> $GITHUB_OUTPUT
+        shell: bash
+
       - name: Free disk space
         run: |
           # Remove unnecessary tools to free up space for Docker builds
@@ -213,7 +220,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository }}/${{ matrix.service }}
+          images: ghcr.io/${{ steps.repo.outputs.lowercase }}/${{ matrix.service }}
           tags: |
             type=ref,event=branch
             type=ref,event=pr
@@ -232,12 +239,12 @@ jobs:
           cache-to: type=gha,mode=max
           # Use pre-baked base image for app service (contains CUDA + PyTorch)
           build-args: |
-            ${{ matrix.service == 'app' && format('BASE_IMAGE=ghcr.io/{0}/base:latest', github.repository) || '' }}
+            ${{ matrix.service == 'app' && format('BASE_IMAGE=ghcr.io/{0}/base:latest', steps.repo.outputs.lowercase) || '' }}
 
       - name: Scan image for vulnerabilities
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ghcr.io/${{ github.repository }}/${{ matrix.service }}:${{ github.sha }}
+          image-ref: ghcr.io/${{ steps.repo.outputs.lowercase }}/${{ matrix.service }}:${{ github.sha }}
           format: 'sarif'
           output: 'trivy-image-${{ matrix.service }}.sarif'
         continue-on-error: true
