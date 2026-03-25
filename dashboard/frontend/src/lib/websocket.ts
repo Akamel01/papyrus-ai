@@ -17,6 +17,7 @@ export class DashboardWS {
         this.ws = new WebSocket(url);
 
         this.ws.onopen = () => {
+            console.log('[WS] Connected at', new Date().toISOString());
             this.reconnectDelay = 1000;
         };
 
@@ -31,6 +32,7 @@ export class DashboardWS {
         };
 
         this.ws.onclose = () => {
+            console.log('[WS] Disconnected at', new Date().toISOString());
             this._scheduleReconnect();
         };
 

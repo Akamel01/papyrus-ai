@@ -7,6 +7,7 @@ User documents are stored separately from the shared KB and can be:
 - Deleted with cascading cleanup (Qdrant + BM25 + SQLite + disk)
 """
 
+import asyncio
 import hashlib
 import logging
 import os
@@ -22,6 +23,25 @@ from auth import require_viewer, require_operator, TokenPayload
 logger = logging.getLogger("dashboard.documents")
 
 router = APIRouter()
+
+# --- WebSocket Manager for Real-Time Updates ---
+_ws_manager = None
+
+
+def set_ws_manager(manager):
+    """Set the WebSocket manager for real-time document status notifications."""
+    global _ws_manager
+    _ws_manager = manager
+
+
+async def _broadcast_status_change(document_id: str, status: str):
+    """Broadcast document status change to all connected WebSocket clients."""
+    if _ws_manager:
+        await _ws_manager.broadcast({
+            "type": "document.status_change",
+            "payload": {"document_id": document_id, "status": status}
+        })
+
 
 # Configuration
 USER_DOCUMENTS_DIR = os.getenv("USER_DOCUMENTS_DIR", "/data/user_documents")
@@ -276,6 +296,9 @@ async def process_document(
     # For now, update status to 'downloaded' to signal ready for processing
     paper_store.update_status(document_id, "downloaded")
 
+    # Broadcast status change for real-time UI update
+    asyncio.create_task(_broadcast_status_change(document_id, "processing"))
+
     logger.info(f"User {user_id} triggered processing for document: {document_id}")
 
     return ProcessResponse(
@@ -301,6 +324,8 @@ async def process_all_pending(user: TokenPayload = Depends(require_viewer)):
     # Queue all for processing
     for doc_id in pending_ids:
         paper_store.update_status(doc_id, "downloaded")
+        # Broadcast status change for real-time UI update
+        asyncio.create_task(_broadcast_status_change(doc_id, "processing"))
 
     logger.info(f"User {user_id} triggered processing for {len(pending_ids)} documents")
 
@@ -325,9 +350,9 @@ async def list_documents(user: TokenPayload = Depends(require_viewer)):
     for paper in papers:
         # Map internal status to user-friendly status
         internal_status = paper["status"]
-        if internal_status in ("discovered", "downloaded"):
+        if internal_status == "discovered":
             display_status = "pending"
-        elif internal_status in ("chunked", "chunking"):
+        elif internal_status in ("downloaded", "chunked", "chunking"):
             display_status = "processing"
         elif internal_status == "embedded":
             display_status = "ready"
@@ -387,9 +412,9 @@ async def get_document_status(
 
     # Map status
     internal_status = paper.status
-    if internal_status in ("discovered", "downloaded"):
+    if internal_status == "discovered":
         display_status = "pending"
-    elif internal_status in ("chunked", "chunking"):
+    elif internal_status in ("downloaded", "chunked", "chunking"):
         display_status = "processing"
     elif internal_status == "embedded":
         display_status = "ready"

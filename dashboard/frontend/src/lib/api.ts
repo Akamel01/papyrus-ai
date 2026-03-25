@@ -52,6 +52,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
             if (!retry.ok) throw new ApiError(retry.status, await retry.text());
             return retry.json();
         }
+        console.log('[API] Session expired, redirecting to login at', new Date().toISOString())
         clearTokens();
         window.location.href = '/login';
         throw new ApiError(401, 'Session expired');
@@ -170,7 +171,8 @@ export interface DocumentListResponse {
 }
 
 export const documents = {
-    list: () => request<DocumentListResponse>('/documents'),
+    // Note: FastAPI routes require trailing slashes to avoid 307 redirects
+    list: () => request<DocumentListResponse>('/documents/'),
 
     upload: async (file: File): Promise<{ document_id: string; filename: string; status: string; message: string }> => {
         const formData = new FormData();
@@ -181,17 +183,32 @@ export const documents = {
             headers['Authorization'] = `Bearer ${accessToken}`;
         }
 
-        const res = await fetch(`${API_BASE}/documents/upload`, {
-            method: 'POST',
-            headers,
-            body: formData,
-        });
+        // Use AbortController for 2-minute timeout on uploads
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minutes
 
-        if (!res.ok) {
-            const body = await res.text();
-            throw new ApiError(res.status, body);
+        try {
+            const res = await fetch(`${API_BASE}/documents/upload`, {
+                method: 'POST',
+                headers,
+                body: formData,
+                signal: controller.signal,
+            });
+
+            clearTimeout(timeoutId);
+
+            if (!res.ok) {
+                const body = await res.text();
+                throw new ApiError(res.status, body);
+            }
+            return res.json();
+        } catch (err) {
+            clearTimeout(timeoutId);
+            if (err instanceof Error && err.name === 'AbortError') {
+                throw new ApiError(408, 'Upload timed out after 2 minutes. Please try a smaller file or check your connection.');
+            }
+            throw err;
         }
-        return res.json();
     },
 
     process: (documentId: string) =>

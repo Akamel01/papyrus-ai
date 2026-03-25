@@ -31,6 +31,7 @@ from app.components import (
     SVG_ICONS
 )
 from app.components.rag_wrapper import RAGWrapper, RetrieverWrapper
+from app.components.quick_upload import get_quick_upload_context
 
 # Import Live Monitor components
 from src.ui.monitor_components import (
@@ -102,6 +103,28 @@ def check_auth():
     """JWT-based authentication via auth service."""
     # Initialize auth state
     init_auth_state()
+
+    # Inject JavaScript to restore auth from localStorage on page load
+    # This runs on EVERY page load to ensure session persistence works
+    # The script checks localStorage and redirects with the refresh token in query params
+    # which is then picked up by _try_restore_from_storage() on the next load
+    st.markdown('''
+    <script>
+        (function() {
+            // Only run once per page load
+            if (window._sme_auth_restore_checked) return;
+            window._sme_auth_restore_checked = true;
+
+            const refreshToken = localStorage.getItem('sme_refresh_token');
+            if (refreshToken && !window.location.search.includes('_auth_refresh')) {
+                // Redirect with refresh token in query params
+                const url = new URL(window.location.href);
+                url.searchParams.set('_auth_refresh', refreshToken);
+                window.location.href = url.toString();
+            }
+        })();
+    </script>
+    ''', unsafe_allow_html=True)
 
     # Check if user is authenticated
     if is_authenticated():
@@ -715,7 +738,7 @@ def main():
                     [data-testid="stForm"] {
                         max-width: 48rem !important;
                         width: 100% !important;
-                        margin: -120px auto auto auto !important;
+                        margin: 0 auto !important;
                         background: #1a1a1a !important;
                         border: 1px solid #333 !important;
                         border-radius: 12px !important;
@@ -878,6 +901,16 @@ def main():
                     [data-testid="stTextArea"] textarea::-webkit-resizer {
                         background: transparent !important;
                     }
+
+                    /* Fix stark white background on any standard chat inputs or file uploaders explicitly */
+                    [data-testid="stChatInput"] {
+                        background-color: #1a1a1a !important;
+                        border-color: #404040 !important;
+                    }
+                    [data-testid="stChatInput"] * {
+                        background-color: transparent !important;
+                        color: #e0e0e0 !important;
+                    }
                 </style>
                 """, unsafe_allow_html=True)
                 
@@ -954,12 +987,12 @@ def main():
 
                 # SIDEBAR LOCKING (Persistent)
                 # Inject CSS to dim and disable sidebar during processing
-                # Must be here to survive reruns
+                # Must be here to survive reruns. Sidebar stays visible so users
+                # can see their quick uploads are still active.
                 st.markdown("""
                 <style>
                     [data-testid="stSidebar"] {
-                        opacity: 0.4 !important;
-                        filter: grayscale(1.0) !important;
+                        opacity: 0.7 !important;
                         pointer-events: none !important;
                         user-select: none !important;
                         transition: all 0.3s ease !important;
@@ -1012,14 +1045,6 @@ def main():
                 "citation_density": sidebar_config.citation_density,
                 "auto_citation_density": sidebar_config.auto_citation_density
             }
-        
-
-            # Configure logging
-            logging.basicConfig(
-                level=logging.INFO,
-                format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-            )
-            logger = logging.getLogger(__name__)
 
             # User sent a message
             st.session_state.messages.append({"role": "user", "content": prompt})
@@ -1173,7 +1198,7 @@ def main():
 
             # MULTI-USER: Extract user_id for data isolation
             current_user = get_current_user()
-            user_id = current_user.get("user_id") if current_user else None
+            user_id = current_user.id if current_user else None
             if user_id:
                 logger.debug(f"[MULTI-USER] Processing query for user_id={user_id}")
             else:
@@ -1310,6 +1335,8 @@ def main():
                             auto_citation_density=cfg.get("auto_citation_density", True),
                             preset=preset,  # FIX #1: Pass preset parameter
                             user_id=user_id,  # MULTI-USER: Pass user_id for data isolation
+                            knowledge_source=cfg.get("knowledge_source", "both"),  # Knowledge source selection
+                            quick_upload_context=get_quick_upload_context(),  # Quick uploads for section mode
                             status_callback=lambda step_name: (
                                 status_placeholder.markdown(
                                     render_status_block(SVG_RERANK, "Processing", f"{step_name}", "active"),
@@ -1444,6 +1471,7 @@ def main():
                             citation_density=cfg.get("citation_density"),
                             auto_citation_density=cfg.get("auto_citation_density", True),
                             user_id=user_id,  # MULTI-USER: Pass user_id for data isolation
+                            knowledge_source=cfg.get("knowledge_source", "both"),  # Knowledge source selection
                             status_callback=lambda step_name: (
                                 status_placeholder.markdown(
                                     render_status_block(SVG_RERANK, "Sequential Reasoning", f"{step_name}...", "active"),
@@ -1472,7 +1500,12 @@ def main():
                     add_step("Searching papers")
                     st.markdown(inject_monitor_update(), unsafe_allow_html=True)
                     
-                    retrieval_results = pipeline["retriever"].retrieve(prompt, top_k=actual_paper_range[1], user_id=user_id)
+                    retrieval_results = pipeline["retriever"].retrieve(
+                        prompt,
+                        top_k=actual_paper_range[1],
+                        user_id=user_id,
+                        knowledge_source=cfg.get("knowledge_source", "both")
+                    )
                     
                     # Live monitor - Search complete
                     complete_step()
@@ -1547,7 +1580,15 @@ def main():
                     # Use apa_references count if available, otherwise count from sources
                     papers_used = len(apa_references) if apa_references else len(set(s.get("doi", "") for s in sources))
                     st.caption(f"{confidence_color.get(confidence, '⚪')} Confidence: {confidence} | Citation: {compliance_badge} | Papers: {papers_used}")
-                    
+
+                    # Show quick upload attribution if files were used in this response
+                    if st.session_state.get("quick_uploads"):
+                        upload_count = len(st.session_state.quick_uploads)
+                        upload_names = ", ".join([f["filename"] for f in st.session_state.quick_uploads[:2]])
+                        if upload_count > 2:
+                            upload_names += f" +{upload_count - 2} more"
+                        st.caption(f"📎 Included {upload_count} uploaded doc{'s' if upload_count > 1 else ''}: {upload_names}")
+
                     # FIX: Monitor Complete
                     finish_monitor(sources_count=papers_used)
             

@@ -14,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from routes import config_routes, run_routes, db_routes, qdrant_routes
 from routes import metrics_routes, dlq_routes, audit_routes, auth_routes, ws_routes
 from routes import documents_routes
+from routes.documents_routes import set_ws_manager as set_docs_ws_manager
 from metrics_collector import MetricsCollector
 from ws_manager import WSManager
 from prometheus_metrics import (
@@ -107,7 +108,7 @@ async def _metrics_sample_loop():
 
 
 async def _pipeline_gauge_loop():
-    """Update Prometheus pipeline gauge and broadcast state changes every 2s."""
+    """Update Prometheus pipeline gauge and broadcast pipeline/qdrant state every 5s."""
     from command_runner import tracker
     last_state = None
     while True:
@@ -116,32 +117,45 @@ async def _pipeline_gauge_loop():
             update_pipeline_gauge(status.get("running", False), status.get("mode"))
             update_ws_clients_gauge(ws_manager.client_count)
 
-            # Broadcast state change if status changed
+            # Always broadcast run status so dashboard doesn't need to poll
+            run_payload = {
+                "running": status.get("running", False),
+                "mode": status.get("mode"),
+                "pid": status.get("pid"),
+                "uptime_sec": status.get("uptime_sec"),
+            }
+            await ws_manager.broadcast({"type": "run.update", "payload": run_payload})
+
+            # Also broadcast state-change event for logging on transitions
             current_state = (status.get("running"), status.get("mode"), status.get("pid"))
             if current_state != last_state:
                 await ws_manager.broadcast({
                     "type": "pipeline.state_change",
-                    "payload": {
-                        "running": status.get("running", False),
-                        "mode": status.get("mode"),
-                        "pid": status.get("pid"),
-                        "uptime_sec": status.get("uptime_sec"),
-                        "timestamp": time.time()
-                    }
+                    "payload": {**run_payload, "timestamp": time.time()}
                 })
                 last_state = current_state
                 logger.info(f"[WS] Pipeline state change broadcast: running={status.get('running')}")
+
+            # Fetch and broadcast qdrant stats (reuses cached client)
+            try:
+                import qdrant_client as qc
+                q_payload = await qc.get_stats()
+                await ws_manager.broadcast({"type": "qdrant.update", "payload": q_payload})
+            except Exception:
+                pass  # Qdrant stats are best-effort
+
         except Exception as e:
             logger.debug(f"Pipeline gauge loop error: {e}")
-        await asyncio.sleep(2.0)
+        await asyncio.sleep(5.0)
 
 
 @app.on_event("startup")
 async def startup():
     logger.info("Dashboard backend starting...")
-    # Wire WebSocket manager into ws_routes module
+    # Wire WebSocket manager into route modules
     from routes.ws_routes import set_ws_manager
     set_ws_manager(ws_manager)
+    set_docs_ws_manager(ws_manager)  # Enable real-time document status updates
     asyncio.create_task(_metrics_broadcast_loop())
     asyncio.create_task(_metrics_sample_loop())
     asyncio.create_task(_pipeline_gauge_loop())

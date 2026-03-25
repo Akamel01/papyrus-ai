@@ -13,7 +13,7 @@ This is the main orchestrator class. Method implementations are in:
 """
 
 import logging
-from typing import List, Dict, Tuple, Generator
+from typing import List, Dict, Tuple, Generator, Optional
 from src.utils.monitoring import StepTracker, start_run, end_run
 from src.utils.diagnostics import DiagnosticGate # Diagnostic System
 from src.utils.reference_splitter import split_references, format_split_references, split_references_by_doi
@@ -369,7 +369,9 @@ You MUST cite a source for EVERY factual statement. Retry now."""
         preset: dict = None,
         status_callback = None,
         step_callback: callable = None,  # Live monitoring callback
-        user_id: str = None  # Multi-user isolation
+        user_id: str = None,  # Multi-user isolation
+        knowledge_source: str = "both",  # Knowledge source selection
+        quick_upload_context: Optional[str] = None  # Quick uploads context
     ) -> Generator[GenerationProgress, None, Dict]:
         """
         Process query with section-by-section generation and streaming.
@@ -392,7 +394,8 @@ You MUST cite a source for EVERY factual statement. Retry now."""
             yield from self._process_with_sections_core(
                 query, depth, model, paper_range,
                 conversation_history, citation_density,
-                auto_citation_density, preset, status_callback
+                auto_citation_density, preset, status_callback,
+                user_id, knowledge_source, quick_upload_context
             )
         finally:
             end_run()
@@ -407,7 +410,10 @@ You MUST cite a source for EVERY factual statement. Retry now."""
         citation_density: str = None,
         auto_citation_density: bool = True,
         preset: dict = None,
-        status_callback = None
+        status_callback = None,
+        user_id: Optional[str] = None,
+        knowledge_source: str = "both",
+        quick_upload_context: Optional[str] = None
     ) -> Generator[GenerationProgress, None, Dict]:
         """
         Process query with section-by-section generation and streaming.
@@ -454,8 +460,19 @@ You MUST cite a source for EVERY factual statement. Retry now."""
         
         # H9 FIX: Capture reranked_results for landscape + per-section injection
         initial_context, initial_results, initial_refs, initial_doi_map, initial_reranked = self._do_search(
-            query, preset, model, paper_range, depth=depth, user_id=user_id
+            query, preset, model, paper_range, depth=depth, user_id=user_id,
+            knowledge_source=knowledge_source
         )
+
+        # Prepend quick upload context (session-only documents) if provided
+        if quick_upload_context:
+            initial_context = (
+                "=== USER-PROVIDED DOCUMENTS (Highest Priority) ===\n\n"
+                f"{quick_upload_context}\n\n"
+                "=== RETRIEVED KNOWLEDGE BASE ===\n\n"
+                f"{initial_context}"
+            )
+
         num_sources = len(initial_doi_map)
         
         if status_callback:
@@ -661,7 +678,8 @@ You MUST cite a source for EVERY factual statement. Retry now."""
                         inject_results=initial_reranked if initial_reranked else initial_results,  # H9: inject full reranked set
                         context_builder=section_context_builder,
                         max_per_doi=3,  # Force diversity to prevent single-paper domination
-                        user_id=user_id
+                        user_id=user_id,
+                        knowledge_source=knowledge_source
                     )
                     gate.context["hits"] = len(section_search_results)
                     unique_sec_docs = len({r.chunk.doi for r in section_search_results}) if section_search_results else 0

@@ -14,6 +14,16 @@ import { dashboardWS } from './lib/websocket'
 function App() {
   const [authed, setAuthed] = useState(!!localStorage.getItem('access_token'))
 
+  // Debug logging to track page reloads
+  useEffect(() => {
+    console.log('[Dashboard] App mounted at', new Date().toISOString())
+    const handleBeforeUnload = () => {
+      console.log('[Dashboard] Page unloading at', new Date().toISOString())
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [])
+
   useEffect(() => {
     if (authed) {
       dashboardWS.connect()

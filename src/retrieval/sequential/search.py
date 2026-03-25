@@ -146,7 +146,7 @@ class SearchMixin:
                     suppress=True
                 ) as gate:
                     try:
-                        hyde_results = hyde.search(query, use_hyde=True, model=model, search_params=search_params, user_id=user_id)
+                        hyde_results = hyde.search(query, use_hyde=True, model=model, search_params=search_params, user_id=user_id, knowledge_source=knowledge_source)
                         all_results.extend(hyde_results)
                         logger.info(f"Sequential RAG: HyDE added {len(hyde_results)} results")
                         gate.context["result_count"] = len(hyde_results)
@@ -193,7 +193,8 @@ class SearchMixin:
                 if sub_q != query:
                     # FIX (H1): Each sub-query gets full top_k_initial (per-query, not divided)
                     sub_results = self.pipeline["hybrid_search"].search(
-                        sub_q, top_k=preset["top_k_initial"], search_params=search_params, user_id=user_id
+                        sub_q, top_k=preset["top_k_initial"], search_params=search_params, user_id=user_id,
+                        knowledge_source=knowledge_source
                     )
                     all_results.extend(sub_results)
                     sub_query_count += 1
@@ -232,7 +233,7 @@ class SearchMixin:
                 safe_details = details.encode('ascii', 'replace').decode('ascii')
                 logger.info(f"Audit: MISSING aspect '{safe_details}'. Augmenting search.")
                 with StepTracker(f"Reactive Search: {details}"):
-                    missing_results = hybrid_search.search(details, top_k=initial_k, search_params=search_params, user_id=user_id)
+                    missing_results = hybrid_search.search(details, top_k=initial_k, search_params=search_params, user_id=user_id, knowledge_source=knowledge_source)
                     all_results.extend(missing_results)
                     
             elif decision == "RESTRUCTURE":
@@ -246,7 +247,7 @@ class SearchMixin:
                     if set(atomic_queries) != {query}:
                         all_results = []
                         for aq in atomic_queries:
-                            sub_results = hybrid_search.search(aq, top_k=initial_k, search_params=search_params, user_id=user_id)
+                            sub_results = hybrid_search.search(aq, top_k=initial_k, search_params=search_params, user_id=user_id, knowledge_source=knowledge_source)
                             all_results.extend(sub_results)
             else:
                 logger.info("Audit: SUFFICIENT Coverage.")

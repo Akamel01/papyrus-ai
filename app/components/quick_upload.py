@@ -111,6 +111,14 @@ def render_quick_upload():
     if "quick_uploads" not in st.session_state:
         st.session_state.quick_uploads = []
 
+    # Initialize widget key for stable file uploader (only increment after successful upload)
+    if "upload_widget_key" not in st.session_state:
+        st.session_state.upload_widget_key = 0
+
+    # Track last uploaded file to prevent re-processing on rerun
+    if "_last_uploaded_file" not in st.session_state:
+        st.session_state._last_uploaded_file = None
+
     current_count = len(st.session_state.quick_uploads)
 
     # Header
@@ -130,10 +138,17 @@ def render_quick_upload():
         uploaded_file = st.file_uploader(
             "Drop file here",
             type=["pdf", "md", "txt", "docx"],
-            key=f"quick_upload_widget_{time.time()}",  # Unique key to reset after upload
+            key=f"quick_upload_widget_{st.session_state.upload_widget_key}",  # Stable key, incremented only after successful upload
             label_visibility="collapsed",
             help=f"PDF, MD, TXT, DOCX (max {MAX_FILE_SIZE_MB}MB)"
         )
+
+        if uploaded_file is not None:
+            # Prevent re-processing same file on rerun (race condition fix)
+            if st.session_state._last_uploaded_file == uploaded_file.name:
+                # Clear flag after one cycle and skip processing
+                st.session_state._last_uploaded_file = None
+                uploaded_file = None  # Skip processing
 
         if uploaded_file is not None:
             # Check file size
@@ -156,6 +171,9 @@ def render_quick_upload():
                             "uploaded_at": time.time(),
                             "file_size": uploaded_file.size
                         })
+                        # Set flag and increment key before rerun to prevent re-processing
+                        st.session_state._last_uploaded_file = uploaded_file.name
+                        st.session_state.upload_widget_key += 1
                         st.success(f"Added '{uploaded_file.name}'")
                         st.rerun()
                     else:
@@ -163,10 +181,29 @@ def render_quick_upload():
     else:
         st.caption(f"Max {MAX_FILES} files reached. Remove one to add more.")
 
-    # Display uploaded files
+    # Display uploaded files with prominent visual feedback
     if st.session_state.quick_uploads:
-        st.markdown(f'<div style="margin-top: 8px;"></div>', unsafe_allow_html=True)
+        # ── Active context badge ──
+        n = len(st.session_state.quick_uploads)
+        st.markdown(f'''
+        <div style="
+            background: linear-gradient(135deg, rgba(212, 175, 55, 0.15), rgba(212, 175, 55, 0.05));
+            border: 1px solid {GOLD}44;
+            border-radius: 8px;
+            padding: 6px 10px;
+            margin-top: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        ">
+            <span style="font-size: 13px;">📎</span>
+            <span style="color: {GOLD}; font-size: 11px; font-weight: 600;">
+                {n} file{"s" if n != 1 else ""} active in context
+            </span>
+        </div>
+        ''', unsafe_allow_html=True)
 
+        # ── File list ──
         for i, doc in enumerate(st.session_state.quick_uploads):
             col1, col2 = st.columns([4, 1])
             with col1:
@@ -180,7 +217,15 @@ def render_quick_upload():
                 size_str = f"{size_kb:.0f}KB" if size_kb < 1024 else f"{size_kb/1024:.1f}MB"
 
                 st.markdown(f'''
-                <div style="font-size: 12px; color: {TEXT_GREY};" title="{doc["filename"]}">
+                <div style="
+                    font-size: 12px;
+                    color: {TEXT_GREY};
+                    display: flex;
+                    align-items: center;
+                    gap: 4px;
+                    padding: 2px 0;
+                " title="{doc["filename"]}">
+                    <span style="color: #22c55e; font-size: 11px;">✓</span>
                     {display_name}
                     <span style="color: {MUTED_TEXT}; font-size: 10px;">({size_str})</span>
                 </div>
@@ -197,10 +242,10 @@ def render_quick_upload():
                 st.session_state.quick_uploads = []
                 st.rerun()
 
-    # Usage hint
+    # Usage hint (de-emphasized)
     st.markdown(f'''
     <div style="font-size: 10px; color: {MUTED_TEXT}; margin-top: 8px; line-height: 1.4;">
-        Session-only. Cleared on refresh.
+        Session-only · Cleared on refresh
     </div>
     ''', unsafe_allow_html=True)
 
