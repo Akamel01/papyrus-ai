@@ -454,13 +454,31 @@ class StorageStage(PipelineStage):
     Saves embeddings to Vector Store and updates status.
     Refactored for Atomic Commit (Upsert All -> Update Status).
     """
-    def __init__(self, vector_store, paper_store: PaperStore):
+    def __init__(self, vector_store, paper_store: PaperStore, status_notify_url: Optional[str] = None):
         super().__init__("Storage")
         self.vector_store = vector_store
         self.paper_store = paper_store
         # Hooks for metrics aggregation (injected by main script)
-        self.on_success = None 
-        
+        self.on_success = None
+        # URL for dashboard webhook to notify document completion
+        self.status_notify_url = status_notify_url or "http://sme_dashboard_backend:8400/api/documents/internal/notify-completion"
+
+    def _notify_dashboard(self, document_id: str, status: str, bm25_indexed: bool = False):
+        """Notify dashboard backend of document completion for WebSocket broadcast."""
+        try:
+            import httpx
+            response = httpx.post(
+                self.status_notify_url,
+                json={"document_id": document_id, "status": status, "bm25_indexed": bm25_indexed},
+                timeout=2.0
+            )
+            if response.status_code == 200:
+                logger.debug(f"[STORAGE-NOTIFY] Dashboard notified: {document_id} -> {status}")
+            else:
+                logger.warning(f"[STORAGE-NOTIFY] Dashboard notification failed: {response.status_code}")
+        except Exception as e:
+            logger.debug(f"[STORAGE-NOTIFY] Dashboard notification skipped: {e}")
+
     def process(self, input_stream: Iterator[PipelineItem]) -> Iterator[PipelineItem]:
         for item in input_stream:
             if not item.is_valid:
@@ -497,7 +515,10 @@ class StorageStage(PipelineStage):
                 logger.info(f"[STORAGE-STATUS] Updating paper status to 'embedded'...")
                 self.paper_store.update_status(paper.unique_id, "embedded")
                 logger.info(f"[STORAGE-COMPLETE] Paper={paper.unique_id} successfully embedded and saved!")
-                
+
+                # 2.5. Notify dashboard of completion for real-time UI updates
+                self._notify_dashboard(paper.unique_id, "ready")
+
                 # 3. Metric Hook (Fix 2.6)
                 if self.on_success:
                     self.on_success(paper, len(chunks))

@@ -9,9 +9,10 @@
 
 1. [Auth Service API](#auth-service-api)
 2. [Dashboard API](#dashboard-api)
-3. [Internal APIs](#internal-apis)
-4. [WebSocket API](#websocket-api)
-5. [Core Interfaces](#core-interfaces)
+3. [Documents API](#documents-api)
+4. [Internal APIs](#internal-apis)
+5. [WebSocket API](#websocket-api)
+6. [Core Interfaces](#core-interfaces)
 
 ---
 
@@ -524,11 +525,280 @@ Authorization: Bearer <access_token>
 
 ---
 
+## Documents API
+
+**Base URL:** `http://localhost:8080/api/documents` (via Caddy)
+**Direct URL:** `http://localhost:8400/api/documents` (internal)
+
+The Documents API enables users to upload, process, and manage their personal documents. Documents are isolated per user and go through the full embedding pipeline.
+
+### Upload Document
+
+```http
+POST /api/documents/upload
+Authorization: Bearer <access_token>
+Content-Type: multipart/form-data
+```
+
+**Request:**
+- `file`: File upload (PDF, MD, DOCX, max 50MB)
+
+**Response (200):**
+```json
+{
+    "document_id": "user:uuid:manual:checksum",
+    "filename": "paper.pdf",
+    "status": "pending",
+    "message": "Document uploaded successfully. Click 'Process' to embed."
+}
+```
+
+**Error Responses:**
+- `400 Bad Request`: Invalid file type or size exceeded
+- `409 Conflict`: Document with same content already exists
+
+---
+
+### Process Document
+
+```http
+POST /api/documents/{document_id}/process
+Authorization: Bearer <access_token>
+```
+
+**Processing Modes:**
+- **Pipeline Mode**: When streaming pipeline is running, document is queued
+- **On-Demand Mode**: When pipeline is NOT running, document is processed immediately in background
+
+**Response (200) - Pipeline Mode:**
+```json
+{
+    "document_id": "user:uuid:manual:checksum",
+    "status": "processing",
+    "message": "Document queued for processing via pipeline."
+}
+```
+
+**Response (200) - On-Demand Mode:**
+```json
+{
+    "document_id": "user:uuid:manual:checksum",
+    "status": "processing",
+    "message": "Document processing started (on-demand mode)."
+}
+```
+
+**Error Responses:**
+- `404 Not Found`: Document not found or not owned by user
+- `400 Bad Request`: Document cannot be processed (already processing/ready)
+
+---
+
+### Process All Pending
+
+```http
+POST /api/documents/process-all
+Authorization: Bearer <access_token>
+```
+
+**Response (200):**
+```json
+{
+    "queued_count": 5,
+    "message": "Queued 5 documents for processing."
+}
+```
+
+---
+
+### List Documents
+
+```http
+GET /api/documents
+Authorization: Bearer <access_token>
+```
+
+**Response (200):**
+```json
+{
+    "documents": [
+        {
+            "document_id": "user:uuid:manual:checksum",
+            "filename": "paper.pdf",
+            "title": "Paper Title",
+            "status": "ready",
+            "file_size": 2456789,
+            "upload_date": "Mar 23, 2026",
+            "error_message": null,
+            "bm25_indexed": true
+        }
+    ],
+    "total": 1,
+    "counts": {
+        "total": 10,
+        "pending": 2,
+        "processing": 1,
+        "ready": 6,
+        "failed": 1
+    }
+}
+```
+
+**Document Status Values:**
+- `pending`: Uploaded, not yet processed
+- `processing`: Currently being embedded
+- `ready`: Fully indexed and searchable
+- `failed`: Processing failed (see error_message)
+
+---
+
+### Get Document Status
+
+```http
+GET /api/documents/{document_id}/status
+Authorization: Bearer <access_token>
+```
+
+**Response (200):**
+```json
+{
+    "document_id": "user:uuid:manual:checksum",
+    "title": "Paper Title",
+    "status": "ready",
+    "internal_status": "embedded"
+}
+```
+
+---
+
+### Delete Document
+
+```http
+DELETE /api/documents/{document_id}
+Authorization: Bearer <access_token>
+```
+
+Performs cascading delete:
+1. Qdrant (vector embeddings)
+2. BM25 Tantivy (keyword index)
+3. SQLite (paper record)
+4. Disk (source file)
+
+**Response (200):**
+```json
+{
+    "deleted": true,
+    "message": "Document deleted successfully."
+}
+```
+
+---
+
+### Batch Delete Documents
+
+```http
+DELETE /api/documents/batch
+Authorization: Bearer <access_token>
+Content-Type: application/json
+```
+
+**Request:**
+```json
+{
+    "document_ids": ["doc1", "doc2", "doc3"]
+}
+```
+
+**Response (200):**
+```json
+{
+    "deleted_count": 3,
+    "failed": []
+}
+```
+
+---
+
 ## Internal APIs
 
 These endpoints are for service-to-service communication and should not be exposed externally.
 
+### Documents Internal
+
+#### Notify Document Completion (Pipeline → Dashboard)
+
+```http
+POST /api/documents/internal/notify-completion
+Content-Type: application/json
+```
+
+Called by the streaming pipeline when a document finishes embedding. Triggers WebSocket broadcast to all connected dashboard clients.
+
+**Request:**
+```json
+{
+    "document_id": "user:uuid:manual:checksum",
+    "status": "ready",
+    "bm25_indexed": true
+}
+```
+
+**Response (200):**
+```json
+{
+    "ok": true
+}
+```
+
+**WebSocket Broadcast:**
+```json
+{
+    "type": "document.status_change",
+    "payload": {
+        "document_id": "user:uuid:manual:checksum",
+        "status": "ready",
+        "bm25_indexed": true
+    }
+}
+```
+
+---
+
 ### Auth Service Internal
+
+#### Internal Login (Service-to-Service)
+
+```http
+POST /api/auth/internal/login
+Content-Type: application/json
+```
+
+**Request:**
+```json
+{
+    "email": "user@example.com",
+    "password": "SecurePass123!"
+}
+```
+
+**Response (200):**
+```json
+{
+    "access_token": "eyJhbGciOiJIUzI1NiIs...",
+    "refresh_token": "eyJhbGciOiJIUzI1NiIs...",
+    "token_type": "bearer",
+    "expires_in": 900,
+    "user_id": "550e8400-e29b-41d4-a716-446655440000",
+    "dashboard_role": "operator"
+}
+```
+
+**Notes:**
+- No rate limiting (internal use only)
+- Returns dashboard_role for role-based access control
+- Used by Dashboard backend to authenticate against Auth Service
+
+---
 
 #### Validate Token
 
@@ -636,6 +906,45 @@ Sent every 1 second.
 
 ---
 
+#### Pipeline State Change (Server → Client)
+
+```json
+{
+    "type": "pipeline.state_change",
+    "payload": {
+        "running": true,
+        "mode": "processing",
+        "papers_processed": 150
+    }
+}
+```
+
+Sent when pipeline starts, stops, or changes mode. Enables real-time UI updates without polling.
+
+---
+
+#### Document Status Change (Server → Client)
+
+```json
+{
+    "type": "document.status_change",
+    "payload": {
+        "document_id": "user:uuid:manual:checksum",
+        "status": "ready",
+        "bm25_indexed": true
+    }
+}
+```
+
+Sent when a user document's processing status changes. Includes `bm25_indexed` field indicating whether the document has been indexed for keyword search.
+
+**Status Values:**
+- `processing`: Document is being parsed, chunked, or embedded
+- `ready`: Document is fully indexed (vector + BM25)
+- `failed`: Processing failed
+
+---
+
 ## Core Interfaces
 
 ### Retrieval Interface
@@ -649,6 +958,7 @@ class HybridSearcher:
         query: str,
         top_k: int = 10,
         user_id: Optional[str] = None,  # Required for multi-user isolation
+        knowledge_source: str = "both",  # Knowledge source filter
         filters: Optional[Dict] = None,
         bm25_weight: float = 0.3,
         semantic_weight: float = 0.7
@@ -660,12 +970,18 @@ class HybridSearcher:
             query: Search query text
             top_k: Number of results to return
             user_id: User ID for data isolation (critical for multi-user)
+            knowledge_source: "shared_only", "user_only", or "both"
             filters: Additional metadata filters
             bm25_weight: Weight for BM25 scores (0.0-1.0)
             semantic_weight: Weight for semantic scores (0.0-1.0)
 
         Returns:
             List of RetrievalResult objects with scores
+
+        Knowledge Source Behavior:
+            - "shared_only": Only search shared KB (user_id is NULL)
+            - "user_only": Only search user's uploaded documents
+            - "both": Search both user docs and shared KB
         """
 ```
 

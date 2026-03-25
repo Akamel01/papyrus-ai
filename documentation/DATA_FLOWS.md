@@ -9,10 +9,11 @@
 
 1. [Overview](#overview)
 2. [Paper Acquisition Pipeline](#paper-acquisition-pipeline)
-3. [RAG Query Pipeline](#rag-query-pipeline)
-4. [Authentication Flow](#authentication-flow)
-5. [User Data Isolation](#user-data-isolation)
-6. [Caching Strategy](#caching-strategy)
+3. [User Document Flow](#user-document-flow)
+4. [RAG Query Pipeline](#rag-query-pipeline)
+5. [Authentication Flow](#authentication-flow)
+6. [User Data Isolation](#user-data-isolation)
+7. [Caching Strategy](#caching-strategy)
 
 ---
 
@@ -257,6 +258,132 @@ The resume thread runs in the background, allowing the main pipeline to start im
 
 ---
 
+## User Document Flow
+
+### Overview
+
+Users can upload personal documents through two pathways:
+
+1. **Quick Upload (Chat UI)** - Session-only, immediate use, no embedding
+2. **My Documents (Dashboard)** - Persistent, full embedding pipeline
+
+### Quick Upload Flow (Session-Only)
+
+```
+┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
+│   Upload    │───►│   Extract   │───►│   Session   │───►│  RAG Query  │
+│  (Sidebar)  │    │    Text     │    │   State     │    │  (Context)  │
+└─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘
+      │                  │                  │                  │
+      ▼                  ▼                  ▼                  ▼
+   10MB limit        PyMuPDF/           Streamlit         Always first
+   3 files max       python-docx        session_state     in context
+```
+
+**Features:**
+- Supports PDF, MD, TXT, DOCX
+- 10MB limit per file, max 3 files
+- Text extraction via PyMuPDF (PDF) / python-docx (DOCX)
+- Stored in `st.session_state.quick_uploads`
+- Cleared on page refresh
+- **Always included** in context regardless of knowledge source toggle
+
+### My Documents Flow (Persistent)
+
+```
+┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
+│   Upload    │───►│   Pending   │───►│   Process   │───►│   Embed     │
+│  (Dashboard)│    │   (SQLite)  │    │  (Pipeline) │    │ (Qdrant+BM25)│
+└─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘
+      │                  │                  │                  │
+      ▼                  ▼                  ▼                  ▼
+   50MB limit      status=pending      Auto-detect      user_id filter
+   PDF/MD/DOCX     user_id set         Pipeline mode    Full isolation
+```
+
+**Processing Modes:**
+- **Pipeline Mode**: When streaming pipeline is running, documents are queued and processed by the main pipeline
+- **On-Demand Mode**: When pipeline is NOT running, documents are processed immediately in a background thread
+
+**Status Flow:**
+```
+discovered → downloaded → chunking → chunked → embedded
+                                           ↘ failed
+```
+
+**API Endpoints:**
+- `POST /api/documents/upload` - Upload file (status: pending)
+- `POST /api/documents/{id}/process` - Trigger embedding (auto-detects pipeline mode)
+- `POST /api/documents/process-all` - Process all pending
+- `GET /api/documents` - List user's documents (includes `bm25_indexed` status)
+- `DELETE /api/documents/{id}` - Cascading delete
+- `POST /api/documents/internal/notify-completion` - Internal webhook for pipeline notifications
+
+### Real-Time Status Updates (WebSocket)
+
+Document status changes are broadcast via WebSocket for real-time UI updates:
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    WEBSOCKET BROADCAST FLOW                          │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  Pipeline ────► Internal Webhook ────► Dashboard Backend            │
+│  (sme_app)     /notify-completion      (WebSocket Manager)          │
+│                        │                      │                      │
+│                        ▼                      ▼                      │
+│                   POST request          ws.broadcast()               │
+│                        │                      │                      │
+│                        └──────────────────────┴───► All Clients     │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**WebSocket Event:**
+```json
+{
+  "type": "document.status_change",
+  "payload": {
+    "document_id": "uuid-here",
+    "status": "ready",
+    "bm25_indexed": true
+  }
+}
+```
+
+### Cascading Delete Flow
+
+When a user deletes a document:
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    CASCADE DELETE ORDER                              │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  1. Qdrant ────► Delete vectors with user_id + document_id filter   │
+│                        │                                             │
+│                        ▼                                             │
+│  2. BM25 Tantivy ─► Delete keyword index entries                    │
+│                        │                                             │
+│                        ▼                                             │
+│  3. SQLite ────────► Delete paper record (ownership verified)       │
+│                        │                                             │
+│                        ▼                                             │
+│  4. Disk ──────────► Delete /data/user_documents/{user_id}/{file}   │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Ownership Verification:**
+```python
+# Must verify ownership before delete
+paper = paper_store.get_user_paper(document_id, user_id)
+if not paper:
+    raise HTTPException(404, "Document not found or not owned by you.")
+```
+
+---
+
 ## RAG Query Pipeline
 
 ### Pipeline Overview
@@ -330,15 +457,47 @@ Query
 combined_score = (bm25_weight * bm25_score) + (semantic_weight * semantic_score)
 ```
 
-**User Filtering:**
+**Knowledge Source Filtering:**
+
+The `knowledge_source` parameter controls which documents are searched:
+
+| Mode | Qdrant Filter | BM25 Filter |
+|------|---------------|-------------|
+| `shared_only` | `IsNull(user_id)` | Filter during hydration |
+| `user_only` | `Match(user_id, value)` | Filter during hydration |
+| `both` | `Should([Match, IsNull])` | Filter during hydration |
+
 ```python
-# Both searches filter by user_id
-bm25_results = bm25_index.search(query, top_k=50, user_id=user_id)
+# Knowledge source filtering (both searches)
+bm25_results = bm25_index.search(
+    query, top_k=50,
+    user_id=user_id,
+    knowledge_source=knowledge_source  # "shared_only", "user_only", "both"
+)
 semantic_results = vector_store.search(
     query_vector,
     top_k=50,
-    filters={"user_id": user_id}
+    user_id=user_id,
+    knowledge_source=knowledge_source
 )
+```
+
+**Quick Upload Integration:**
+
+Quick Uploads are always prepended to context (highest priority):
+
+```python
+context_parts = []
+
+# 1. Quick Uploads - ALWAYS included
+if st.session_state.get("quick_uploads"):
+    for doc in st.session_state.quick_uploads:
+        context_parts.append(f"[Quick Upload: {doc['filename']}]\n{doc['content'][:5000]}")
+
+# 2. Retrieved documents (filtered by knowledge_source)
+for result in retrieval_results:
+    source_label = "My Documents" if result.user_id else "Shared KB"
+    context_parts.append(f"[{source_label}]\n{result.text}")
 ```
 
 #### Step 3: Reranking

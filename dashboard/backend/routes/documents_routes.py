@@ -12,15 +12,20 @@ import hashlib
 import logging
 import os
 import shutil
+import threading
 from datetime import datetime
 from typing import List, Optional
+from concurrent.futures import ThreadPoolExecutor
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile, status
 from pydantic import BaseModel
 
 from auth import require_viewer, require_operator, TokenPayload
 
 logger = logging.getLogger("dashboard.documents")
+
+# Thread pool for on-demand processing (limited to 1 to avoid overload)
+_processing_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="doc_processor")
 
 router = APIRouter()
 
@@ -34,13 +39,154 @@ def set_ws_manager(manager):
     _ws_manager = manager
 
 
-async def _broadcast_status_change(document_id: str, status: str):
+async def _broadcast_status_change(document_id: str, status: str, bm25_indexed: bool = False):
     """Broadcast document status change to all connected WebSocket clients."""
     if _ws_manager:
         await _ws_manager.broadcast({
             "type": "document.status_change",
-            "payload": {"document_id": document_id, "status": status}
+            "payload": {"document_id": document_id, "status": status, "bm25_indexed": bm25_indexed}
         })
+
+
+def _is_pipeline_running() -> bool:
+    """Check if the streaming pipeline is currently running."""
+    try:
+        import httpx
+        response = httpx.get("http://localhost:8402/status", timeout=2.0)
+        if response.status_code == 200:
+            return response.json().get("running", False)
+    except Exception as e:
+        logger.debug(f"Pipeline status check failed: {e}")
+    return False
+
+
+def _process_document_sync(document_id: str, user_id: str):
+    """
+    Synchronously process a single document (parse, chunk, embed, store).
+    Runs in a background thread when pipeline is not running.
+    """
+    import sys
+    sme_src = "/app/src"
+    if sme_src not in sys.path:
+        sys.path.insert(0, "/app")
+        sys.path.insert(0, sme_src)
+
+    try:
+        from src.storage.db import DatabaseManager
+        from src.storage.paper_store import PaperStore
+        from src.pipeline.chunk_worker import process_paper_to_chunks
+        from src.indexing.vector_store import QdrantVectorStore
+        from src.indexing.bm25_tantivy import TantivyBM25Index
+        from src.utils.helpers import load_config
+
+        # Get paper details
+        db_path = os.getenv("PAPERS_DB_PATH", "/data/papers.db")
+        db_manager = DatabaseManager(db_path)
+        paper_store = PaperStore(db_manager)
+        paper = paper_store.get_user_paper(document_id, user_id)
+
+        if not paper:
+            logger.error(f"Document {document_id} not found for processing")
+            return
+
+        # Update status to processing
+        paper_store.update_status(document_id, "chunking")
+        asyncio.run(_broadcast_status_change(document_id, "processing"))
+
+        # Load config
+        config = load_config("/app/config/config.yaml")
+
+        # 1. Parse and chunk the document
+        logger.info(f"[ON-DEMAND] Parsing document: {document_id}")
+        chunks = process_paper_to_chunks(
+            pdf_path=paper.pdf_path,
+            paper_metadata={
+                "doi": paper.doi or document_id,
+                "title": paper.title,
+                "authors": paper.authors if hasattr(paper, 'authors') else [],
+                "year": paper.year if hasattr(paper, 'year') else None,
+                "venue": paper.venue if hasattr(paper, 'venue') else None,
+                "citation_count": 0,
+                "apa_reference": f"{paper.title}. User Document.",
+            },
+            parser_config=config.get("ingestion", {}).get("parsing", {}),
+            chunker_config=config.get("ingestion", {}).get("chunking", {})
+        )
+
+        if not chunks:
+            paper_store.update_status(document_id, "failed_chunking")
+            asyncio.run(_broadcast_status_change(document_id, "failed"))
+            logger.error(f"[ON-DEMAND] No chunks produced for {document_id}")
+            return
+
+        paper_store.update_status(document_id, "chunked")
+        logger.info(f"[ON-DEMAND] Produced {len(chunks)} chunks for {document_id}")
+
+        # 2. Embed the chunks
+        from src.indexing import create_embedder
+        embedder = create_embedder(config)
+        embedder.load()
+
+        texts = [c.text for c in chunks]
+        embeddings = embedder.embed(texts)
+
+        # 3. Store in Qdrant
+        vector_store = QdrantVectorStore(
+            host=os.getenv("QDRANT_HOST", "sme_qdrant"),
+            port=int(os.getenv("QDRANT_PORT", "6333")),
+            collection_name=os.getenv("QDRANT_COLLECTION", "sme_papers"),
+        )
+
+        # Build points for upsert
+        points = []
+        for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
+            chunk_id = f"{document_id}_chunk_{i}"
+            points.append({
+                "id": chunk_id,
+                "vector": embedding,
+                "payload": {
+                    "chunk_id": chunk_id,
+                    "text": chunk.text,
+                    "doi": paper.doi or document_id,
+                    "title": paper.title,
+                    "user_id": user_id,
+                    "chunk_index": i,
+                    **chunk.metadata
+                }
+            })
+
+        vector_store.upsert(points)
+        logger.info(f"[ON-DEMAND] Stored {len(points)} vectors for {document_id}")
+
+        # 4. Index in BM25
+        try:
+            bm25_index = TantivyBM25Index(
+                index_path=os.getenv("BM25_INDEX_PATH", "/data/bm25_index_tantivy")
+            )
+            bm25_docs = [
+                {"chunk_id": p["id"], "text": p["payload"]["text"], "doi": p["payload"]["doi"]}
+                for p in points
+            ]
+            bm25_index.add_documents(bm25_docs)
+            paper_store.mark_bm25_indexed([document_id])
+            bm25_indexed = True
+            logger.info(f"[ON-DEMAND] BM25 indexed {len(bm25_docs)} chunks for {document_id}")
+        except Exception as e:
+            logger.warning(f"[ON-DEMAND] BM25 indexing failed for {document_id}: {e}")
+            bm25_indexed = False
+
+        # 5. Update status to embedded
+        paper_store.update_status(document_id, "embedded")
+        asyncio.run(_broadcast_status_change(document_id, "ready", bm25_indexed=bm25_indexed))
+        logger.info(f"[ON-DEMAND] Document {document_id} processing complete")
+
+    except Exception as e:
+        logger.error(f"[ON-DEMAND] Processing failed for {document_id}: {e}", exc_info=True)
+        try:
+            paper_store.update_status(document_id, "failed_embedding")
+            asyncio.run(_broadcast_status_change(document_id, "failed"))
+        except Exception:
+            pass
 
 
 # Configuration
@@ -59,6 +205,7 @@ class DocumentInfo(BaseModel):
     file_size: int
     upload_date: str
     error_message: Optional[str] = None
+    bm25_indexed: bool = False
 
 
 class DocumentListResponse(BaseModel):
@@ -274,6 +421,8 @@ async def process_document(
     Trigger processing (embedding) for a single document.
 
     The document must be in 'discovered' or 'downloaded' status.
+    If the streaming pipeline is running, the document is queued.
+    If the pipeline is NOT running, on-demand processing is triggered.
     """
     user_id = user.sub
     paper_store = _get_paper_store()
@@ -292,26 +441,41 @@ async def process_document(
             detail=f"Document cannot be processed (current status: {paper.status})."
         )
 
-    # Queue for processing via pipeline
-    # For now, update status to 'downloaded' to signal ready for processing
-    paper_store.update_status(document_id, "downloaded")
+    # Check if streaming pipeline is running
+    pipeline_running = _is_pipeline_running()
 
-    # Broadcast status change for real-time UI update
-    asyncio.create_task(_broadcast_status_change(document_id, "processing"))
+    if pipeline_running:
+        # Queue for processing via streaming pipeline
+        paper_store.update_status(document_id, "downloaded")
+        asyncio.create_task(_broadcast_status_change(document_id, "processing"))
+        logger.info(f"User {user_id} queued document for pipeline: {document_id}")
+        return ProcessResponse(
+            document_id=document_id,
+            status="processing",
+            message="Document queued for processing via pipeline."
+        )
+    else:
+        # On-demand processing (pipeline not running)
+        paper_store.update_status(document_id, "downloaded")
+        asyncio.create_task(_broadcast_status_change(document_id, "processing"))
 
-    logger.info(f"User {user_id} triggered processing for document: {document_id}")
+        # Submit to background thread pool
+        _processing_executor.submit(_process_document_sync, document_id, user_id)
 
-    return ProcessResponse(
-        document_id=document_id,
-        status="processing",
-        message="Document queued for processing."
-    )
+        logger.info(f"User {user_id} triggered on-demand processing for: {document_id}")
+        return ProcessResponse(
+            document_id=document_id,
+            status="processing",
+            message="Document processing started (on-demand mode)."
+        )
 
 
 @router.post("/process-all", response_model=dict)
 async def process_all_pending(user: TokenPayload = Depends(require_viewer)):
     """
     Trigger processing for all pending documents.
+    If the streaming pipeline is running, documents are queued.
+    If the pipeline is NOT running, on-demand processing is triggered.
     """
     user_id = user.sub
     paper_store = _get_paper_store()
@@ -321,17 +485,24 @@ async def process_all_pending(user: TokenPayload = Depends(require_viewer)):
     if not pending_ids:
         return {"queued_count": 0, "message": "No pending documents to process."}
 
+    # Check if streaming pipeline is running
+    pipeline_running = _is_pipeline_running()
+
     # Queue all for processing
     for doc_id in pending_ids:
         paper_store.update_status(doc_id, "downloaded")
-        # Broadcast status change for real-time UI update
         asyncio.create_task(_broadcast_status_change(doc_id, "processing"))
 
-    logger.info(f"User {user_id} triggered processing for {len(pending_ids)} documents")
+        if not pipeline_running:
+            # On-demand processing for each document
+            _processing_executor.submit(_process_document_sync, doc_id, user_id)
+
+    mode = "pipeline" if pipeline_running else "on-demand"
+    logger.info(f"User {user_id} triggered {mode} processing for {len(pending_ids)} documents")
 
     return {
         "queued_count": len(pending_ids),
-        "message": f"Queued {len(pending_ids)} documents for processing."
+        "message": f"Processing {len(pending_ids)} documents ({mode} mode)."
     }
 
 
@@ -383,6 +554,7 @@ async def list_documents(user: TokenPayload = Depends(require_viewer)):
             file_size=file_size,
             upload_date=upload_date,
             error_message=paper.get("error_message"),
+            bm25_indexed=paper.get("bm25_indexed", False),
         ))
 
     return DocumentListResponse(
@@ -554,3 +726,28 @@ async def delete_documents_batch(
         deleted_count=deleted_count,
         failed=failed
     )
+
+
+# --- Internal Webhook for Pipeline Notifications ---
+class PipelineNotification(BaseModel):
+    """Internal notification from the streaming pipeline."""
+    document_id: str
+    status: str
+    bm25_indexed: bool = False
+
+
+@router.post("/internal/notify-completion")
+async def notify_document_completion(notification: PipelineNotification):
+    """
+    Internal webhook for the streaming pipeline to notify when a document
+    completes processing. This triggers a WebSocket broadcast to all clients.
+
+    Called by: sme_app pipeline when a document reaches 'embedded' status.
+    """
+    await _broadcast_status_change(
+        notification.document_id,
+        notification.status,
+        bm25_indexed=notification.bm25_indexed
+    )
+    logger.info(f"Pipeline notification: {notification.document_id} -> {notification.status}")
+    return {"ok": True}
