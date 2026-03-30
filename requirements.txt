@@ -14,7 +14,7 @@ torch==2.5.1
 
 # Vector store (PINNED to be compatible with server version 1.12.6)
 # Server is v1.12.6, using latest 1.12.x client available (1.12.2)
-qdrant-client==1.12.2
+qdrant-client==1.17.1
 
 # BM25 search
 rank-bm25>=0.2.2
