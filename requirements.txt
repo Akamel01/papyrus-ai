@@ -10,7 +10,7 @@ pymupdf4llm>=0.0.5
 sentence-transformers>=2.2.2
 # Pin PyTorch to CUDA 12.4 compatible version (host driver 576.x supports CUDA 12.9)
 # PyTorch 2.11+ requires CUDA 13.0+ which needs newer drivers
-torch==2.5.1
+torch==2.11.0
 
 # Vector store (PINNED to be compatible with server version 1.12.6)
 # Server is v1.12.6, using latest 1.12.x client available (1.12.2)
