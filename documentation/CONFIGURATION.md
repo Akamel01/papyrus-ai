@@ -50,6 +50,15 @@
 |----------|-------------|---------|
 | `QDRANT_URL` | Qdrant vector database | `http://sme_qdrant:6333` |
 | `OLLAMA_URL` | Ollama embedding/LLM | `http://sme_ollama:11434` |
+| `AUTH_SERVICE_URL` | Auth service for unified auth | `http://auth:8000` |
+
+### User Documents Configuration
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `USER_DOCUMENTS_DIR` | Directory for user uploads | `/data/user_documents` |
+| `PAPERS_DB_PATH` | Path to papers SQLite database | `/data/papers.db` |
+| `BM25_INDEX_PATH` | Path to Tantivy BM25 index | `/data/bm25_index_tantivy` |
 
 ---
 
@@ -183,6 +192,54 @@ retrieval:
 - Higher `semantic_weight`: Better conceptual matching
 - Sum should equal 1.0
 
+### Extraction Settings (Two-Stage Librarian)
+
+The extraction system uses `max_facts` as the PRIMARY control parameter. All other limits (chunks, rerank) are DERIVED automatically.
+
+```yaml
+extraction:
+  # Depth-aware fact targets (PRIMARY PARAMETER)
+  max_facts:
+    low: 40       # Quick answers: fewer facts, faster
+    medium: 80    # Balanced: moderate fact coverage
+    high: 150     # Comprehensive: maximum evidence
+
+  # Two-stage extraction settings
+  sample_size: 8                    # Chunks to sample for density estimation
+  density_estimate_default: 3.0     # Fallback facts-per-chunk ratio
+  early_stop_buffer: 1.1            # Stop at 110% of target
+  rerank_buffer: 1.25               # Rerank 25% more than needed chunks
+
+  # Section-specific targets (for multi-section generation)
+  section_mode:
+    facts_per_section:
+      low: 25       # Per-section target for Low depth
+      medium: 40    # Per-section target for Medium depth
+      high: 60      # Per-section target for High depth
+```
+
+**How Derived Values Work:**
+
+| Setting | Formula | Example (Medium) |
+|---------|---------|------------------|
+| `max_chunks` | `max_facts / density + sample_size` | 80/3.0 + 8 = 35 |
+| `top_k_rerank` | `max_chunks * rerank_buffer` | 35 * 1.25 = 44 |
+
+**Two-Stage Extraction:**
+1. **Stage 1 (Sample):** Extract facts from first N chunks to estimate actual density
+2. **Stage 2 (Early Stop):** Process remaining chunks, stop when `max_facts` reached
+
+This prevents wasted LLM calls by stopping extraction early once sufficient facts are gathered.
+
+### Librarian Settings
+
+```yaml
+librarian:
+  max_chunks: 100  # Safety ceiling (derived value takes precedence)
+```
+
+**Note:** This is a safety ceiling only. The actual chunk limit is derived from `extraction.max_facts` divided by the estimated facts-per-chunk density. Only increase this if you consistently need more chunks than the derived limit.
+
 ### Generation Settings
 
 ```yaml
@@ -233,6 +290,43 @@ security:
   session_timeout: 3600        # Session timeout (seconds)
   max_query_length: 2000       # Maximum query characters
   audit_logging: true          # Log all queries
+```
+
+### User Documents Settings
+
+```yaml
+user_documents:
+  max_file_size_mb: 50         # Maximum upload size (My Documents)
+  allowed_extensions:
+    - ".pdf"
+    - ".md"
+    - ".docx"
+  storage_dir: "/data/user_documents"  # Per-user subdirectories
+```
+
+### Quick Upload Settings (Chat UI)
+
+```yaml
+quick_upload:
+  max_file_size_mb: 10         # Maximum upload size
+  max_files: 3                 # Maximum files per session
+  allowed_extensions:
+    - ".pdf"
+    - ".md"
+    - ".txt"
+    - ".docx"
+  content_truncate_chars: 5000 # Max chars per document in context
+```
+
+### Knowledge Source Settings
+
+```yaml
+knowledge_source:
+  default: "both"              # Default knowledge source mode
+  options:
+    - "both"                   # User docs + Shared KB
+    - "shared_only"            # Shared KB only
+    - "user_only"              # User's documents only
 ```
 
 ### Monitoring Settings
@@ -523,6 +617,40 @@ response_format: |
 ## Docker Configuration
 
 **File:** `docker-compose.yml`
+
+### Self-Healing Mount Validation
+
+The `init-validator` service automatically repairs corrupted Docker bind mounts before dependent services start. This prevents the "directory instead of file" error that can occur when Docker creates directories for missing mount sources.
+
+**Protected Config Files:**
+
+| Config File | Template Location | Auto-Repair |
+|-------------|-------------------|-------------|
+| `services/caddy/Caddyfile` | `.templates/Caddyfile` | Yes |
+| `config/cloudflared-config.yml` | `.templates/cloudflared-config.yml` | Yes |
+| `config/cloudflared-credentials.json` | N/A (sensitive) | No |
+
+**Template Sync:**
+
+Templates are automatically synced via git pre-commit hook when you commit config changes:
+
+```bash
+# Install hooks (one-time setup)
+./scripts/install-hooks.sh
+
+# Templates auto-update when you commit config files
+git add services/caddy/Caddyfile
+git commit -m "Update routing"
+# Output: [hook] Synced: services/caddy/Caddyfile -> .templates/Caddyfile
+```
+
+**Manual Recovery:**
+
+If the self-healing fails (e.g., credentials file corrupted), use the recovery script:
+
+```bash
+./scripts/fix-mounts.sh
+```
 
 ### Service Resource Limits
 

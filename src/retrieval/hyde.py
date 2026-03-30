@@ -64,7 +64,7 @@ Hypothetical Answer Paragraph:"""
             return query
     
     def search(self, query: str, use_hyde: bool = True, model: str = None,
-               user_id: Optional[str] = None, **kwargs) -> List:
+               user_id: Optional[str] = None, knowledge_source: str = "both", **kwargs) -> List:
         """
         Search using HyDE methodology.
 
@@ -74,6 +74,10 @@ Hypothetical Answer Paragraph:"""
             model: Optional model override for LLM
             user_id: Optional user ID for multi-user isolation. If provided, only returns
                      results belonging to this user.
+            knowledge_source: Which knowledge sources to search:
+                - "shared_only": Only shared KB (user_id is NULL)
+                - "user_only": Only user's documents (requires user_id)
+                - "both": User's docs + shared KB (default)
             **kwargs: Additional arguments passed to vector_store.search (e.g. search_params)
 
         Returns:
@@ -101,12 +105,27 @@ Hypothetical Answer Paragraph:"""
                  else:
                     search_vector = self.embedder.embed(query)
 
-        # MULTI-USER: Build filters for user isolation
+        # Pop knowledge_source from kwargs if passed (backward compatibility)
+        knowledge_source = kwargs.pop("knowledge_source", knowledge_source)
+
+        # Build filters based on knowledge_source (same pattern as HybridSearch)
         filters = kwargs.pop("filters", None)
-        if user_id:
-            filters = filters.copy() if filters else {}
-            filters["user_id"] = user_id
-            logger.debug(f"[HyDE] User isolation active: user_id={user_id}")
+        filters = filters.copy() if filters else {}
+
+        if knowledge_source == "shared_only":
+            filters["user_id_is_null"] = True
+            logger.debug("[HyDE] Knowledge source: shared_only")
+        elif knowledge_source == "user_only":
+            if user_id:
+                filters["user_id"] = user_id
+                logger.debug(f"[HyDE] Knowledge source: user_only, user_id={user_id}")
+            else:
+                logger.warning("[HyDE] user_only mode but no user_id provided")
+        elif knowledge_source == "both":
+            if user_id:
+                filters["user_id_or_null"] = user_id
+                logger.debug(f"[HyDE] Knowledge source: both, user_id={user_id}")
+            # If no user_id, search everything (legacy behavior)
 
         # Search vector store
         results = self.vector_store.search(

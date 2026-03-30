@@ -16,13 +16,69 @@ This guide helps you solve common issues with the SME Research Assistant. Each s
 3. [Authentication Issues](#authentication-issues)
 4. [Cloudflare Tunnel Issues](#cloudflare-tunnel-issues)
 5. [GPU and Ollama Issues](#gpu-and-ollama-issues)
-6. [Database Issues](#database-issues)
-7. [Network Issues](#network-issues)
-8. [Quick Diagnostic Commands](#quick-diagnostic-commands)
+6. [Retrieval and Search Issues](#retrieval-and-search-issues)
+7. [Database Issues](#database-issues)
+8. [Network Issues](#network-issues)
+9. [Quick Diagnostic Commands](#quick-diagnostic-commands)
 
 ---
 
 ## Docker Issues
+
+### Docker Engine 500 Errors (Windows)
+
+**Symptoms:**
+- All docker commands fail with: `request returned 500 Internal Server Error for API route and version http://%2F%2F.%2Fpipe%2FdockerDesktopLinuxEngine/v1.51/...`
+- Cannot run `docker compose logs`, `docker compose up`, or any docker command
+- `docker compose up --build` fails with 500 errors for image pulls
+- Docker Desktop appears to be running but is unresponsive
+
+**Cause:**
+
+The WSL2 Linux VM that powers Docker Desktop has crashed or become unresponsive, typically due to memory pressure. When Docker containers request more memory than WSL2's budget, the Linux kernel inside WSL2 OOM-kills the Docker daemon process, producing 500 errors on the Windows named pipe.
+
+**Immediate Fix (Manual):**
+
+1. Quit Docker Desktop completely (right-click tray icon → Quit)
+2. Run in PowerShell: `wsl --shutdown`
+3. Wait 5 seconds, then restart Docker Desktop
+4. Wait 1-2 minutes for the engine to initialize
+5. Run: `docker compose up -d`
+
+**Permanent Fix (Prevention):**
+
+1. Ensure `.wslconfig` exists at `C:\Users\<username>\.wslconfig` with memory limits:
+   ```ini
+   [wsl2]
+   memory=52G
+   swap=8G
+   processors=12
+   autoMemoryReclaim=gradual
+   ```
+
+2. Ensure all services in `docker-compose.yml` have `deploy.resources.limits.memory` set.
+
+3. After creating `.wslconfig`, restart WSL2:
+   ```powershell
+   wsl --shutdown
+   # Then restart Docker Desktop
+   ```
+
+**Automatic Recovery (Self-Healing Watchdog):**
+
+The watchdog script monitors Docker engine health and auto-recovers on failure:
+
+```powershell
+# Start the watchdog
+powershell -File scripts/docker-watchdog.ps1
+
+# Or use the robust startup script (includes watchdog option)
+powershell -File scripts/start-robust.ps1 -WithWatchdog
+```
+
+View watchdog logs: `Get-Content logs/docker-watchdog.log -Tail 20`
+
+---
 
 ### Docker Daemon Not Running
 
@@ -610,6 +666,44 @@ This is normal behavior for free Cloudflare Quick Tunnels. The URL changes each 
    environment:
      - OLLAMA_NUM_PARALLEL=64  # Reduce from 128
    ```
+
+---
+
+## Retrieval and Search Issues
+
+### HyDE knowledge_source TypeError
+
+**Symptoms:**
+- Error message: `QdrantVectorStore.search() got an unexpected keyword argument 'knowledge_source'`
+- HyDE search fails when using knowledge source filtering
+- Error appears in logs: "HyDE Generation Failed"
+
+**Cause:**
+This was caused by the HyDE retriever passing `knowledge_source` directly to the vector store instead of converting it to filter conditions.
+
+**Solution:**
+This issue was fixed in the codebase. The HyDE retriever now:
+1. Accepts `knowledge_source` as a named parameter
+2. Converts it to proper filter conditions before calling the vector store
+3. Supports all three modes: `shared_only`, `user_only`, `both`
+
+If you encounter this error, update to the latest version:
+```bash
+git pull
+docker compose restart app
+```
+
+**Verification:**
+```bash
+# Check that HyDE accepts knowledge_source parameter
+docker compose exec app python -c "
+from src.retrieval.hyde import HyDERetriever
+import inspect
+sig = inspect.signature(HyDERetriever.search)
+print('knowledge_source' in sig.parameters)
+"
+# Should print: True
+```
 
 ---
 

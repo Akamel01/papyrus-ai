@@ -20,6 +20,9 @@ DEPTH_PRESETS: Dict[str, Dict[str, Any]] = {
         "use_hyde": False,           # Skip HyDE for speed
         "use_query_expansion": False,  # Skip expansion for speed
         "temperature": 0.1,
+        # Extraction targets (Scenario 3: fact-driven limits)
+        "target_facts": 40,          # Max facts for single response
+        "facts_per_section": 25,     # Max facts per section in section mode
         "search_params": {
             "ef_search": 128,      # Standard speed
             "oversampling": 2.0,
@@ -38,6 +41,9 @@ DEPTH_PRESETS: Dict[str, Dict[str, Any]] = {
         "use_hyde": True,
         "use_query_expansion": True,
         "temperature": 0.1,
+        # Extraction targets (Scenario 3: fact-driven limits)
+        "target_facts": 80,          # Max facts for single response
+        "facts_per_section": 40,     # Max facts per section in section mode
         "search_params": {
             "ef_search": 200,      # Better recall
             "oversampling": 2.5,
@@ -56,6 +62,9 @@ DEPTH_PRESETS: Dict[str, Dict[str, Any]] = {
         "use_hyde": True,
         "use_query_expansion": True,
         "temperature": 0.2,          # H3: was 0.05
+        # Extraction targets (Scenario 3: fact-driven limits)
+        "target_facts": 150,         # Max facts for single response
+        "facts_per_section": 60,     # Max facts per section in section mode
         "search_params": {
             "ef_search": 1200,      # Maximum recall (Deep Search)
             "oversampling": 4.0,   # Heavy oversampling for quantization correction

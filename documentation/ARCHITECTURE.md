@@ -64,6 +64,7 @@ The SME Research Assistant is a multi-user RAG (Retrieval-Augmented Generation) 
 
 | Service | Container Name | Port(s) | Purpose |
 |---------|----------------|---------|---------|
+| **init-validator** | sme_init_validator | - | Self-healing mount validation |
 | **caddy** | sme_caddy | 8080:80 | Reverse proxy, request routing |
 | **app** | sme_app | 8501, 8502 | Streamlit chat interface |
 | **auth** | sme_auth | 8000 | User authentication, JWT tokens |
@@ -76,10 +77,71 @@ The SME Research Assistant is a multi-user RAG (Retrieval-Augmented Generation) 
 | **deploy-hook** | sme_deploy_hook | 9000 | Webhook-based auto-deployment |
 | **gpu-exporter** | sme_gpu_exporter | - | GPU metrics collection |
 
+### Self-Healing Mount Validator
+
+The `init-validator` service automatically detects and repairs corrupted Docker bind mounts before dependent services start.
+
+**Problem Solved:** Docker can create directories instead of files when bind mount sources don't exist, causing "not a directory" errors.
+
+**How It Works:**
+```
+┌─────────────────────────────────────────────────────────────┐
+│                   SELF-HEALING FLOW                          │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  docker-compose up                                           │
+│         │                                                    │
+│         ▼                                                    │
+│  init-validator starts                                       │
+│         │                                                    │
+│         ▼                                                    │
+│  Check: Is Caddyfile a directory?                           │
+│         │                                                    │
+│    ┌────┴────┐                                              │
+│    │ YES     │ NO                                           │
+│    ▼         ▼                                              │
+│  rm -rf    Continue                                         │
+│  cp from   checking...                                      │
+│  template                                                   │
+│         │                                                    │
+│         ▼                                                    │
+│  Check: Is cloudflared-config.yml a directory?              │
+│         │                                                    │
+│    ┌────┴────┐                                              │
+│    │ YES     │ NO                                           │
+│    ▼         ▼                                              │
+│  rm -rf    Continue                                         │
+│  cp from   checking...                                      │
+│  template                                                   │
+│         │                                                    │
+│         ▼                                                    │
+│  Check: cloudflared-credentials.json (sensitive)            │
+│         │                                                    │
+│    ┌────┴────┐                                              │
+│    │ CORRUPT │ OK                                           │
+│    ▼         ▼                                              │
+│  EXIT 1   EXIT 0 (success)                                  │
+│  (manual  └──► caddy, cloudflared can start                │
+│   fix)                                                      │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Protected Files:**
+| File | Auto-Repair | Notes |
+|------|-------------|-------|
+| `services/caddy/Caddyfile` | Yes | Restored from `.templates/Caddyfile` |
+| `config/cloudflared-config.yml` | Yes | Restored from `.templates/cloudflared-config.yml` |
+| `config/cloudflared-credentials.json` | No | Sensitive - requires manual restoration |
+
+**Templates Directory:** `.templates/` contains backup copies of non-sensitive config files. Templates are auto-synced via git pre-commit hook when config files are committed.
+
 ### Service Dependencies
 
 ```
-cloudflared ──┬──► caddy ──┬──► auth
+init-validator ──► caddy ──┬──► auth
+                           │
+cloudflared ──┬──► caddy ──┼──► app ──┬──► qdrant
               │            ├──► app ──┬──► qdrant
               │            │          ├──► ollama
               │            │          └──► redis
@@ -111,6 +173,9 @@ SME/
 │   ├── components/               # UI components
 │   │   ├── chat.py              # Chat interface components
 │   │   ├── sidebar.py           # Sidebar controls
+│   │   ├── sidebar_config.py    # Sidebar configuration dataclass
+│   │   ├── quick_upload.py      # Session-only document uploads
+│   │   ├── rag_wrapper.py       # RAG pipeline wrappers
 │   │   └── auth_ui.py           # Login/register components
 │   └── pages/                    # Streamlit pages
 │       └── settings.py          # User settings page
@@ -128,6 +193,7 @@ SME/
 │   ├── sme.db                   # Paper metadata database
 │   ├── chat_history.db          # Chat history
 │   ├── bm25_index_tantivy/      # BM25 keyword index
+│   ├── user_documents/          # User-uploaded documents (per-user subdirs)
 │   └── pipeline_state.json      # Pipeline progress
 │
 ├── DataBase/                     # Paper storage
@@ -136,11 +202,18 @@ SME/
 │
 ├── documentation/                # This documentation folder
 │
+├── .templates/                   # Config file templates (for self-healing)
+│   ├── Caddyfile                # Caddy reverse proxy template
+│   └── cloudflared-config.yml   # Cloudflare tunnel config template
+│
 ├── scripts/                      # Utility scripts
 │   ├── run_pipeline.py          # Full acquisition pipeline
 │   ├── ingest_papers.py         # Manual PDF import
 │   ├── rebuild_bm25.py          # BM25 index rebuild
-│   └── migrate_db.py            # Database migrations
+│   ├── migrate_db.py            # Database migrations
+│   ├── install-hooks.sh         # Install git pre-commit hooks
+│   ├── validate-mounts.sh       # Pre-flight mount validation
+│   └── fix-mounts.sh            # Manual mount recovery script
 │
 ├── services/                     # Docker service configs
 │   ├── auth/                    # Auth service
@@ -155,9 +228,19 @@ SME/
 │   │   ├── Dockerfile          # Container with Docker CLI
 │   │   └── requirements.txt
 │   ├── dashboard-backend/
-│   │   └── main.py             # Dashboard API
+│   │   ├── main.py             # Dashboard API
+│   │   └── routes/
+│   │       ├── documents_routes.py  # User document management API
+│   │       ├── config_routes.py
+│   │       ├── run_routes.py
+│   │       └── ws_routes.py
 │   └── dashboard-ui/
-│       └── src/                # React frontend
+│       └── src/
+│           └── pages/
+│               ├── MyDocuments.tsx  # User document management UI
+│               ├── Dashboard.tsx
+│               ├── RunControls.tsx
+│               └── ConfigEditor.tsx
 │
 ├── src/                          # Core application code
 │   ├── acquisition/             # Paper discovery & download
@@ -249,6 +332,53 @@ Query → HyDE Generation → Embedding → Vector Search
 - `SequentialSearchOrchestrator` - Multi-round reasoning
 - `CrossEncoderReranker` - BGE reranker for final scoring
 
+### 2b. Two-Stage Fact Extraction (`src/academic_v2/`)
+
+**Purpose:** Evidence-First generation with smart fact extraction
+
+**Architecture:**
+```
+CONFIG: max_facts (depth-aware: 40/80/150)
+           │
+           ▼
+    DERIVE: max_chunks = max_facts / density + buffer
+           │
+           ▼
+    DERIVE: top_k_rerank = max_chunks * 1.25
+           │
+           ▼
+┌──────────────────────────────────────────────────────┐
+│              TWO-STAGE LIBRARIAN                      │
+├──────────────────────────────────────────────────────┤
+│  Stage 1: Sample 8 chunks → estimate density          │
+│           (e.g., 24 facts / 8 chunks = 3.0)          │
+│                         │                             │
+│                         ▼                             │
+│  Stage 2: Process remaining chunks                    │
+│           EARLY STOP when facts >= max_facts          │
+│                         │                             │
+│                         ▼                             │
+│  Output: Exactly max_facts (deduplicated)             │
+└──────────────────────────────────────────────────────┘
+           │
+           ▼
+    Architect (no internal cap needed)
+           │
+           ▼
+    Drafter generates section
+```
+
+**Key Components:**
+- `ExtractionParams` - Derived parameters from config + depth
+- `Librarian.extract_facts_with_early_stop()` - Two-stage extraction
+- `AcademicEngine.generate_section_v2()` - Uses extraction params
+
+**Benefits:**
+- 30-50% reduction in LLM calls (early stopping)
+- Single config parameter (`max_facts`) controls entire pipeline
+- Depth-aware: Low=40, Medium=80, High=150 facts
+- Section mode: Per-section targets (25/40/60 facts)
+
 ### 3. Document Processing (`src/indexing/`, `src/ingestion/`)
 
 **Purpose:** Parse, chunk, and embed academic papers
@@ -333,7 +463,60 @@ finally:
 - `PromptBuilder` - Context-aware prompt construction
 - `CitationFormatter` - APA citation generation
 
-### 5. Deploy Hook Service (`services/deploy-hook/`)
+### 6. Quick Upload (`app/components/quick_upload.py`)
+
+**Purpose:** Session-only document uploads for immediate use in chat
+
+**Features:**
+- Upload PDF, MD, TXT, DOCX files directly in sidebar
+- 10MB limit per file, max 3 files per session
+- Text extraction via PyMuPDF (PDF) and python-docx (DOCX)
+- Cleared on page refresh (session-only storage)
+- Always included in context regardless of knowledge source toggle
+
+**Usage Flow:**
+```
+User uploads file → Text extraction → Session state storage → Prepended to RAG context
+```
+
+### 7. My Documents (`dashboard/backend/routes/documents_routes.py`)
+
+**Purpose:** Persistent user document upload with full embedding pipeline
+
+**Features:**
+- Upload PDF, MD, DOCX files (50MB limit)
+- Manual "Process" trigger for embedding
+- Cascading delete (Qdrant → BM25 → SQLite → Disk)
+- Real-time status updates via WebSocket
+- Full user isolation (user_id filtering)
+
+**Status Flow:**
+```
+pending → processing → ready
+                   ↘ failed
+```
+
+### 8. Knowledge Source Integration (`src/retrieval/hybrid_search.py`)
+
+**Purpose:** Unified toggle for selecting knowledge sources
+
+**Knowledge Source Options:**
+| Option | Behavior |
+|--------|----------|
+| `shared_only` | Search only shared KB (user_id is NULL) |
+| `user_only` | Search only user's embedded documents |
+| `both` | Search both sources with proper isolation |
+
+**Context Priority (when "Both" selected):**
+1. Quick Uploads (session docs) - Always included, highest priority
+2. My Documents (user's embedded) - High priority
+3. Shared KB (streaming pipeline) - Normal priority
+
+**Implementation:**
+- Qdrant: IsNull condition for shared docs, FieldCondition for user docs
+- BM25: Filter during hydration phase from Qdrant
+
+### 9. Deploy Hook Service (`services/deploy-hook/`)
 
 **Purpose:** Webhook-based auto-deployment triggered by GitHub CI success
 

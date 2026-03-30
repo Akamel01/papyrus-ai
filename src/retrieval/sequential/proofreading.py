@@ -525,11 +525,15 @@ Return ONLY valid JSON."""
             
             # Filter instructions to keep only actionable ones
             if "edit_instructions" in change_plan:
+                original_count = len(change_plan["edit_instructions"])
                 change_plan["edit_instructions"] = [
                     inst for inst in change_plan["edit_instructions"]
                     if self._is_actionable_instruction(inst)
                 ]
-            
+                filtered_count = original_count - len(change_plan["edit_instructions"])
+                if filtered_count > 0:
+                    logger.info(f"Pass 2: Filtered {filtered_count}/{original_count} instructions as non-actionable")
+
             return change_plan, None
             
         except json.JSONDecodeError as e:
@@ -540,24 +544,43 @@ Return ONLY valid JSON."""
             return {"edit_instructions": []}, str(e)[:100]
     
     def _is_actionable_instruction(self, instruction: dict) -> bool:
-        """Filter out vague or dangerous instructions."""
+        """Filter instructions, but allow specific ones even with qualifying terms."""
         action = instruction.get('specific_action', instruction.get('action', ''))
-        
-        # Reject vague instructions
-        vague_terms = ['improve', 'enhance', 'clarify', 'rewrite', 'restructure', 'reorganize']
-        if any(term in action.lower() for term in vague_terms):
-            logger.info(f"Filtering vague instruction: {action[:50]}")
+
+        # Must have actual action text
+        if len(action) < 10:
+            logger.debug(f"Filtering too-short instruction: '{action}'")
             return False
-        
+
         # Reject instructions targeting entire section
         if 'entire section' in action.lower() or 'whole section' in action.lower():
             logger.info(f"Filtering broad instruction: {action[:50]}")
             return False
-        
-        # Must have actual action text
-        if len(action) < 10:
+
+        action_lower = action.lower()
+
+        # Indicators of specificity - quoted text or specific verbs
+        has_quoted_target = "'" in action or '"' in action
+        has_specific_verb = any(v in action_lower for v in
+            ['delete', 'remove', 'replace', 'add', 'insert', 'change', 'move'])
+
+        # Vague terms that need specificity to be actionable
+        vague_terms = ['improve', 'enhance', 'clarify', 'restructure', 'reorganize']
+        if any(term in action_lower for term in vague_terms):
+            if has_quoted_target or has_specific_verb:
+                logger.debug(f"Accepting qualified instruction: {action[:50]}")
+                return True  # Allow if specific target provided
+            logger.info(f"Filtering vague instruction: {action[:50]}")
             return False
-        
+
+        # Allow "rewrite" only if it specifies target
+        if 'rewrite' in action_lower:
+            if has_quoted_target or ' to ' in action_lower or ' as ' in action_lower:
+                logger.debug(f"Accepting specific rewrite: {action[:50]}")
+                return True
+            logger.info(f"Filtering vague rewrite: {action[:50]}")
+            return False
+
         return True
     
     def _proofread_pass3a(

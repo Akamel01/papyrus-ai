@@ -80,8 +80,11 @@ class SequentialRAG(
         self.reflection_log: List[Dict] = []  # Stores reflection decisions for UI visibility
         self._last_result = None  # Stores final result from process_with_sections generator
         
-        # Initialize Academic Engine V2
-        self.academic_engine = AcademicEngine(self.pipeline["llm"])
+        # Initialize Academic Engine V2 (pass config for librarian settings)
+        self.academic_engine = AcademicEngine(
+            self.pipeline["llm"],
+            config=self.pipeline.get("config", {})
+        )
     
     def process_with_reflection(
         self,
@@ -718,15 +721,19 @@ You MUST cite a source for EVERY factual statement. Retry now."""
                             query=query,
                             section_num=i+1,
                             total_sections=section_count,
-                            review_text=section_plan.get("abstract", "")
+                            review_text=section_plan.get("abstract", ""),
+                            depth=depth,
+                            section_mode=True,
                         )
                         # Bubble up progress events
                         section = yield from gen
                         
                     except Exception as e:
                         logger.error(f"V2 Generation failed: {e}")
-                        raise e
+                        # Do NOT re-raise - allow fallback to create placeholder section
+                        # Re-raising here breaks the generator loop and loses all progress
 
+                if section is not None:
                     gate.context["content_len"] = len(section.content)
             
             # Handle Section Writing Failure (Fallback)

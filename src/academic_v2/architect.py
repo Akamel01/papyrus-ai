@@ -57,19 +57,20 @@ class Architect:
             return []
 
         # ------------------------------------------------------------------
-        # 1️⃣  Cap facts to prevent prompt overflow (P16 Part B)
-        #      Drafter still gets ALL facts — only the Architect sees the cap.
+        # 1️⃣  Fact count check (capping now happens UPSTREAM in Librarian)
         # ------------------------------------------------------------------
-        # Compute target paragraphs first (same formula as _build_user_prompt)
+        # NOTE: With Scenario 3 (two-stage extraction), Librarian already limits
+        # facts to max_facts from config. Architect uses ALL facts it receives.
+        # This ensures no wasted extraction and predictable fact counts.
+        logger.info(
+            "Architect: Planning with %d facts for section '%s'",
+            len(facts), section_name,
+        )
+
+        # Compute target paragraphs based on available facts
         # P17 FIX: Denser synthesis. Fewer paragraphs (max 8), more facts per para.
-        target_paragraphs = max(3, min(8, len(facts) // 25))
-        max_architect_facts = min(100, target_paragraphs * 30)
-        if len(facts) > max_architect_facts:
-            logger.info(
-                "Architect: Capping facts from %d to %d for section '%s'",
-                len(facts), max_architect_facts, section_name,
-            )
-            facts = facts[:max_architect_facts]
+        # Adjusted ratio from //25 to //20 since facts are now pre-limited
+        target_paragraphs = max(3, min(8, len(facts) // 20))
 
         # ------------------------------------------------------------------
         # 2️⃣  Serialize facts for the LLM – sequential IDs (P16 Part A)

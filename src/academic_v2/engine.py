@@ -1,7 +1,7 @@
 import logging
 import time
 import types
-from typing import List, Generator, Any
+from typing import List, Generator, Any, Optional, Dict
 
 from src.core.interfaces import RetrievalResult, SectionResult, LLMClient
 from src.retrieval.sequential.models import GenerationProgress
@@ -9,6 +9,7 @@ from src.academic_v2.models import AtomicFact, ParagraphPlan
 from src.academic_v2.librarian import Librarian
 from src.academic_v2.architect import Architect
 from src.academic_v2.drafter import Drafter
+from src.config.extraction_config import get_extraction_params
 
 logger = logging.getLogger(__name__)
 
@@ -41,8 +42,9 @@ class AcademicEngine:
     )
     _COMBINED_CONSTRAINTS = _CITATION_CONSTRAINT + _CONTENT_CONSTRAINT
 
-    def __init__(self, llm_client: LLMClient):
+    def __init__(self, llm_client: LLMClient, config: Optional[Dict[str, Any]] = None):
         self.llm = llm_client
+        self.config = config or {}
         self.librarian = Librarian(llm_client)
         self.architect = Architect(llm_client)
         self.drafter = Drafter(llm_client)
@@ -242,10 +244,22 @@ class AcademicEngine:
         section_num: int = 0,
         total_sections: int = 0,
         review_text: str = "",
+        depth: str = "Medium",
+        section_mode: bool = False,
     ) -> Generator[GenerationProgress, None, SectionResult]:
         """
         Generate a section using the Graph of Claims workflow.
         Yields progress events so the UI shows the new steps explicitly.
+
+        Args:
+            section_title: Title of the section to generate
+            retrieval_results: Chunks from retrieval pipeline
+            query: Original user query
+            section_num: Current section number (1-indexed)
+            total_sections: Total sections being generated
+            review_text: Abstract/guidance for section planning
+            depth: Investigation depth ("Low", "Medium", "High")
+            section_mode: Whether generating as part of multi-section output
         """
         if not retrieval_results:
             logger.warning(f"No results for section {section_title}")
@@ -258,33 +272,50 @@ class AcademicEngine:
         start_time = time.time()
 
         # -----------------------------------------------------------------
-        #   Step 1 – Librarian (Extraction)
+        #   Step 1 – Librarian (Extraction) with Two-Stage Early Stopping
         # -----------------------------------------------------------------
+        # Get extraction parameters based on depth and mode
+        extraction_params = get_extraction_params(
+            config=self.config,
+            depth=depth,
+            section_mode=section_mode,
+            section_count=total_sections if total_sections > 0 else 1
+        )
+
         yield GenerationProgress(
             type="step",
-            title=f"📚 Librarian: Extracting Facts ({len(retrieval_results)} chunks)",
-            content="",
+            title=f"📚 Librarian: Extracting Facts",
+            content=f"Target: {extraction_params.max_facts} facts from ≤{extraction_params.max_chunks} chunks",
             section_num=section_num,
             total_sections=total_sections,
         )
 
-        # P20 FIX: Cap retrieval chunks passed to Librarian to prevent Architect >32k token overflow
-        # Capping at 120 per user request for testing limits
-        safe_results = retrieval_results[:80]
+        # Cap chunks to derived limit (based on max_facts / density)
+        safe_results = retrieval_results[:extraction_params.max_chunks]
+        logger.debug(
+            f"[Librarian] Extraction params: max_facts={extraction_params.max_facts}, "
+            f"max_chunks={extraction_params.max_chunks}, sample={extraction_params.sample_size}"
+        )
 
-        facts = self.librarian.extract_facts_from_chunks(safe_results)
+        # Use two-stage extraction with early stopping
+        facts, density = self.librarian.extract_facts_with_early_stop(
+            chunks=safe_results,
+            max_facts=extraction_params.max_facts,
+            sample_size=extraction_params.sample_size,
+            density_default=extraction_params.density_estimate
+        )
 
         if not facts:
             safe_title = section_title.encode("ascii", "replace").decode("ascii")
             logger.error(f"FATAL: Librarian found 0 facts for {safe_title}. Terminating pipeline.")
             raise RuntimeError(
-                f"Librarian Failure: Zero facts extracted from {len(retrieval_results)} chunks."
+                f"Librarian Failure: Zero facts extracted from {len(safe_results)} chunks."
             )
 
         yield GenerationProgress(
             type="info",
             title=f"✅ Extracted {len(facts)} Atomic Facts",
-            content="",
+            content=f"Density: {density:.1f} facts/chunk",
             section_num=section_num,
             total_sections=total_sections,
         )

@@ -5,7 +5,7 @@ import uuid
 import inspect
 import re
 import concurrent.futures
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 
 from src.core.interfaces import RetrievalResult, LLMClient
 from src.academic_v2.models import (
@@ -88,6 +88,136 @@ class Librarian:
             f"Librarian: Extracted {len(unique_facts)} unique facts from {len(chunks)} chunks"
         )
         return unique_facts
+
+    def extract_facts_with_early_stop(
+        self,
+        chunks: List[RetrievalResult],
+        max_facts: int,
+        sample_size: int = 8,
+        density_default: float = 3.0
+    ) -> Tuple[List[AtomicFact], float]:
+        """
+        Two-stage extraction with early stopping (Scenario 3).
+
+        Stage 1: Extract from sample to estimate facts-per-chunk density
+        Stage 2: Extract remaining chunks until max_facts reached
+
+        This reduces wasted LLM calls by stopping early once we have
+        enough facts, rather than extracting from all chunks.
+
+        Args:
+            chunks: List of retrieval results to extract from
+            max_facts: Target maximum number of facts to extract
+            sample_size: Number of chunks to sample for density estimation
+            density_default: Fallback density if sample fails
+
+        Returns:
+            Tuple of (facts_list, actual_density)
+        """
+        if not chunks:
+            return [], 0.0
+
+        all_facts: List[AtomicFact] = []
+
+        # ---- STAGE 1: Sample extraction for density estimation ----
+        sample_chunks = chunks[:sample_size]
+        logger.info(
+            f"[Librarian] Stage 1: Sampling {len(sample_chunks)} chunks for density estimation"
+        )
+
+        sample_facts = self._extract_batch_sync(sample_chunks)
+        all_facts.extend(sample_facts)
+
+        # Calculate actual density from sample
+        if sample_chunks:
+            actual_density = len(sample_facts) / len(sample_chunks)
+        else:
+            actual_density = density_default
+
+        logger.info(
+            f"[Librarian] Stage 1 complete: {len(sample_facts)} facts from "
+            f"{len(sample_chunks)} chunks (density={actual_density:.2f} facts/chunk)"
+        )
+
+        # Early exit if sample already exceeds target
+        if len(all_facts) >= max_facts:
+            logger.info(
+                f"[Librarian] Early stop: sample reached {len(all_facts)} facts "
+                f"(target={max_facts})"
+            )
+            unique_facts = self._deduplicate_facts(all_facts[:max_facts])
+            return unique_facts, actual_density
+
+        # ---- STAGE 2: Calculate remaining chunks needed ----
+        remaining_facts_needed = max_facts - len(all_facts)
+
+        # Use actual density to estimate chunks needed (with buffer)
+        effective_density = max(actual_density, 0.5)  # Prevent division by very small numbers
+        chunks_needed = int(remaining_facts_needed / effective_density) + 3  # +3 buffer
+
+        remaining_chunks = chunks[sample_size:sample_size + chunks_needed]
+
+        if not remaining_chunks:
+            logger.info(f"[Librarian] No more chunks to process after sample")
+            unique_facts = self._deduplicate_facts(all_facts)
+            return unique_facts, actual_density
+
+        logger.info(
+            f"[Librarian] Stage 2: Processing {len(remaining_chunks)} more chunks "
+            f"(need ~{remaining_facts_needed} facts, density={actual_density:.2f})"
+        )
+
+        # Extract remaining with batching and early stop checks
+        batches = self._create_batches(remaining_chunks)
+        chunks_processed = len(sample_chunks)
+
+        for batch_idx, batch in enumerate(batches):
+            batch_facts = self._extract_batch_sync(batch)
+            all_facts.extend(batch_facts)
+            chunks_processed += len(batch)
+
+            # Early stop check after each batch
+            if len(all_facts) >= max_facts:
+                logger.info(
+                    f"[Librarian] Early stop: reached {len(all_facts)} facts "
+                    f"after {chunks_processed} chunks (batch {batch_idx + 1}/{len(batches)})"
+                )
+                break
+
+        # Deduplicate and trim to max_facts
+        unique_facts = self._deduplicate_facts(all_facts)
+
+        if len(unique_facts) > max_facts:
+            logger.debug(
+                f"[Librarian] Trimming from {len(unique_facts)} to {max_facts} facts"
+            )
+            unique_facts = unique_facts[:max_facts]
+
+        # Calculate final density based on total extraction
+        final_density = len(unique_facts) / chunks_processed if chunks_processed > 0 else actual_density
+
+        logger.info(
+            f"[Librarian] Complete: {len(unique_facts)} unique facts from "
+            f"{chunks_processed} chunks (final density={final_density:.2f} facts/chunk)"
+        )
+
+        return unique_facts, actual_density
+
+    def _extract_batch_sync(self, batch: List[RetrievalResult]) -> List[AtomicFact]:
+        """
+        Synchronous single-batch extraction (for staged processing).
+
+        Unlike the parallel version, this processes one batch at a time
+        to enable early stopping between batches.
+        """
+        if not batch:
+            return []
+
+        try:
+            return self._extract_batch(batch, raise_errors=False)
+        except Exception as e:
+            logger.warning(f"[Librarian] Batch extraction failed: {e}")
+            return []
 
     # ----------------------------------------------------------------------
     # INTERNAL HELPERS

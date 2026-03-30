@@ -63,18 +63,45 @@ bm25:
   remove_stopwords: true
 
 retrieval:
-  top_k_initial: 50
+  top_k_initial: 30  # Reduced from 50 for faster reranking
   top_k_rerank: 20
   top_k_final: 10
   bm25_weight: 0.3
   semantic_weight: 0.7
   use_reranker: true
-  reranker_model: "BAAI/bge-reranker-v2-m3"
-  reranker_device: "cuda"  # Use GPU for reranking
+  reranker_model: "BAAI/bge-reranker-v2-m3"  # Used by CrossEncoderReranker (local)
+  reranker_device: "cuda"  # Used by CrossEncoderReranker (local)
+  # reranker_remote_url: "http://sme_ollama:11434"  # DISABLED: Using local CrossEncoder for 85-90% latency reduction
+  # reranker_remote_model: "dengcao/Qwen3-Reranker-0.6B:Q8_0"  # DISABLED: Ollama reranker model
   reranker_batch_size: 128
   reranker_max_length: 512
   reranker_dtype: "fp16"
   mmr_diversity: 0.7
+
+librarian:
+  max_chunks: 100  # Safety ceiling for chunk processing (derived value takes precedence)
+
+# Fact extraction settings (Scenario 3: Two-Stage Extraction)
+# max_facts is the PRIMARY control - chunks and rerank are DERIVED from it
+extraction:
+  # Depth-aware fact targets (can be overridden here, defaults from depth_presets.py)
+  max_facts:
+    low: 40       # Quick answers: fewer facts, faster
+    medium: 80    # Balanced: moderate fact coverage
+    high: 150     # Comprehensive: maximum evidence
+
+  # Two-stage extraction settings
+  sample_size: 8                    # Chunks to sample for density estimation
+  density_estimate_default: 3.0     # Fallback facts-per-chunk ratio
+  early_stop_buffer: 1.1            # Stop at 110% of target (overshoot protection)
+  rerank_buffer: 1.25               # Rerank 25% more than needed chunks
+
+  # Section-specific targets (for multi-section generation)
+  section_mode:
+    facts_per_section:
+      low: 25       # Per-section target for Low depth
+      medium: 40    # Per-section target for Medium depth
+      high: 60      # Per-section target for High depth
 
 generation:
   llm_provider: "ollama"
