@@ -86,30 +86,30 @@ services:
 
           # Check required fields: AccountTag, TunnelSecret, TunnelID, Endpoint
           CREDS=/mnt/config/cloudflared-credentials.json
-          if ! jq empty "$CREDS" 2>/dev/null; then
+          if ! jq empty $$CREDS 2>/dev/null; then
             echo "ERROR: cloudflared-credentials.json is not valid JSON"
             exit 1
           fi
 
           # Verify all required fields are present and non-empty
           for field in AccountTag TunnelSecret TunnelID Endpoint; do
-            value=$(jq -r ".$field // empty" "$CREDS" 2>/dev/null)
-            if [ -z "$value" ]; then
-              echo "ERROR: cloudflared-credentials.json field '$field' is empty or missing"
+            value=$$(jq -r ".$$field // empty" $$CREDS 2>/dev/null)
+            if [ -z "$$value" ]; then
+              echo "ERROR: cloudflared-credentials.json field '$$field' is empty or missing"
               echo "HINT: Run 'cloudflared tunnel create papyrus-tunnel' to regenerate"
               exit 1
             fi
           done
 
           # Verify Endpoint is a valid HTTPS URL
-          endpoint=$(jq -r '.Endpoint' "$CREDS" 2>/dev/null)
-          if [[ ! "$endpoint" =~ ^https:// ]]; then
-            echo "ERROR: Endpoint is not a valid HTTPS URL: $endpoint"
+          endpoint=$$(jq -r '.Endpoint' $$CREDS 2>/dev/null)
+          if [ -z "$$endpoint" ] || ! echo "$$endpoint" | grep -q "^https://"; then
+            echo "ERROR: Endpoint is not a valid HTTPS URL: $$endpoint"
             echo "HINT: Endpoint should be something like: https://tunnel.cloudflare.com"
             exit 1
           fi
 
-          echo "OK: cloudflared-credentials.json (Endpoint: ${endpoint:0:30}...)"
+          echo "OK: cloudflared-credentials.json"
         fi &&
 
         echo "=== All mounts validated ==="
