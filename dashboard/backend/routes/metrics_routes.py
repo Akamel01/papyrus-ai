@@ -16,14 +16,37 @@ import db_reader
 router = APIRouter()
 collector = MetricsCollector()
 
-# --- In-memory time series store (last 24h, sampled every 30s) ---
+# --- In-memory time series store (7 days, sampled every 30s) ---
 _series: list[dict] = []  # [{ts, cpu, ram, gpu_util, embedded_count}]
-_MAX_SERIES = 2880  # 24h × 60min × 2 samples/min
+_MAX_SERIES = 20160  # 7d × 24h × 60min × 2 samples/min
 
 
-def record_sample():
+def downsample(series: list[dict], target_points: int = 200) -> list[dict]:
+    """Downsample time series to target number of points using averaging."""
+    if len(series) <= target_points:
+        return series
+
+    bucket_size = len(series) // target_points
+    result = []
+
+    for i in range(0, len(series), bucket_size):
+        bucket = series[i:i + bucket_size]
+        if not bucket:
+            continue
+        result.append({
+            "ts": bucket[-1]["ts"],  # Use last timestamp
+            "cpu": sum(s["cpu"] for s in bucket) / len(bucket),
+            "ram": sum(s["ram"] for s in bucket) / len(bucket),
+            "gpu_util": sum(s.get("gpu_util", 0) for s in bucket) / len(bucket),
+            "embedded_count": bucket[-1].get("embedded_count", 0),  # Use last value
+        })
+
+    return result
+
+
+async def record_sample():
     """Called periodically to record a metrics sample."""
-    data = collector.collect()
+    data = await collector.collect()
     counts = db_reader.get_paper_counts()
     entry = {
         "ts": time.time(),
@@ -39,7 +62,7 @@ def record_sample():
 
 @router.get("/system")
 async def system_metrics(_user: TokenPayload = Depends(require_viewer)):
-    return collector.collect()
+    return await collector.collect()
 
 
 @router.get("/projection")
@@ -114,18 +137,23 @@ async def history(
     range: str = Query("1h", regex="^(1h|6h|24h|7d)$"),
     _user: TokenPayload = Depends(require_viewer),
 ):
-    """Return time-series data for charts."""
+    """Return time-series data for charts with adaptive resolution."""
     now = time.time()
     durations = {"1h": 3600, "6h": 21600, "24h": 86400, "7d": 604800}
+    target_points = {"1h": 120, "6h": 180, "24h": 288, "7d": 336}
     cutoff = now - durations.get(range, 3600)
 
     filtered = [s for s in _series if s["ts"] >= cutoff]
+
+    # Apply downsampling for longer ranges
+    sampled = downsample(filtered, target_points.get(range, 200))
+
     return {
-        "timestamps": [s["ts"] for s in filtered],
-        "cpu": [s["cpu"] for s in filtered],
-        "ram": [s["ram"] for s in filtered],
-        "gpu_util": [s["gpu_util"] for s in filtered],
-        "throughput": [s.get("embedded_count", 0) for s in filtered],
+        "timestamps": [s["ts"] for s in sampled],
+        "cpu": [round(s["cpu"], 1) for s in sampled],
+        "ram": [round(s["ram"], 1) for s in sampled],
+        "gpu_util": [round(s.get("gpu_util", 0), 1) for s in sampled],
+        "throughput": [s.get("embedded_count", 0) for s in sampled],
     }
 
 

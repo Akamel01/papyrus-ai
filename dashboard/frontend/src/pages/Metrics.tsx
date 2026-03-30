@@ -4,7 +4,7 @@ import { metrics } from '../lib/api'
 
 export default function Metrics() {
     const [range, setRange] = useState('1h')
-    const [history, setHistory] = useState<{ timestamps: number[]; cpu: number[]; ram: number[]; throughput: number[] }>({ timestamps: [], cpu: [], ram: [], throughput: [] })
+    const [history, setHistory] = useState<{ timestamps: number[]; cpu: number[]; ram: number[]; gpu_util: number[]; throughput: number[] }>({ timestamps: [], cpu: [], ram: [], gpu_util: [], throughput: [] })
     const [proj, setProj] = useState<{ mean_per_day: number; lower95: number; upper95: number; rate_per_hr: number; samples: number }>({ mean_per_day: 0, lower95: 0, upper95: 0, rate_per_hr: 0, samples: 0 })
 
     useEffect(() => {
@@ -17,11 +17,21 @@ export default function Metrics() {
         return () => clearInterval(i)
     }, [range])
 
+    // Format time label based on range
+    const formatTime = (ts: number) => {
+        const date = new Date(ts * 1000)
+        if (range === '7d') {
+            return date.toLocaleDateString([], { weekday: 'short', hour: '2-digit' })
+        }
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    }
+
     // Transform for Recharts
     const chartData = history.timestamps.map((ts, i) => ({
-        time: new Date(ts * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        time: formatTime(ts),
         cpu: history.cpu[i],
         ram: history.ram[i],
+        gpu: history.gpu_util[i] ?? 0,
         throughput: history.throughput[i],
     }))
 
@@ -44,9 +54,9 @@ export default function Metrics() {
                 </div>
             </div>
 
-            {/* CPU + RAM chart */}
+            {/* CPU, RAM & GPU chart */}
             <div className="card-compact">
-                <div className="text-xs mb-2" style={{ color: 'var(--color-text-secondary)' }}>CPU & RAM Usage (%)</div>
+                <div className="text-xs mb-2" style={{ color: 'var(--color-text-secondary)' }}>CPU, RAM & GPU Usage (%)</div>
                 <ResponsiveContainer width="100%" height={200}>
                     <AreaChart data={chartData}>
                         <defs>
@@ -58,12 +68,17 @@ export default function Metrics() {
                                 <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.3} />
                                 <stop offset="100%" stopColor="#f59e0b" stopOpacity={0} />
                             </linearGradient>
+                            <linearGradient id="gpuGrad" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="#10b981" stopOpacity={0.3} />
+                                <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
+                            </linearGradient>
                         </defs>
                         <XAxis dataKey="time" tick={{ fill: '#64748b', fontSize: 10 }} axisLine={false} tickLine={false} />
                         <YAxis domain={[0, 100]} tick={{ fill: '#64748b', fontSize: 10 }} axisLine={false} tickLine={false} width={30} />
                         <Tooltip contentStyle={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 6, fontSize: 12 }} />
                         <Area type="monotone" dataKey="cpu" stroke="#3b82f6" fill="url(#cpuGrad)" strokeWidth={1.5} name="CPU" />
                         <Area type="monotone" dataKey="ram" stroke="#f59e0b" fill="url(#ramGrad)" strokeWidth={1.5} name="RAM" />
+                        <Area type="monotone" dataKey="gpu" stroke="#10b981" fill="url(#gpuGrad)" strokeWidth={1.5} name="GPU" />
                     </AreaChart>
                 </ResponsiveContainer>
             </div>
