@@ -54,14 +54,14 @@ The production migration was completed successfully. All security vulnerabilitie
 ### Before Migration (INSECURE)
 
 ```yaml
-# config/acquisition_config.yaml — SECRETS EXPOSED
+# config/acquisition_config.yaml — SECRETS EXPOSED (EXAMPLE)
 emails:
-  - "akamel01@mail.ubc.ca"
+  - "user@example.com"
 apis:
   openalex:
-    api_key: "jxig8xd8dUs3wujBKJyMn3"
+    api_key: "[REDACTED - key rotated]"
   semantic_scholar:
-    api_key: 9cFSf1mS9z1hn2JqZa7298ujHJEN34Uk7HXz0CEu
+    api_key: "[REDACTED - key rotated]"
 ```
 
 ### After Migration (SECURE)

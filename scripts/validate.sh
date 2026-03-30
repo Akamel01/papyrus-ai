@@ -52,17 +52,12 @@ echo ""
 # ── Secrets Validation ──
 echo "── Secrets Check ──"
 
-# Check for leaked secrets in config files
-if grep -rq "jxig8xd8dUs3wujBKJyMn3" config/ 2>/dev/null; then
-    fail "OpenAlex API key found in config files (should be in .env)"
+# Check for leaked secrets in config files (hardcoded API keys)
+# Pattern: API keys that are NOT env variable references
+if grep -rqE 'api_key:\s*["'"'"'][^$\{]' config/ 2>/dev/null; then
+    fail "Hardcoded API key found in config files (should reference env vars)"
 else
-    pass "No OpenAlex key in config files"
-fi
-
-if grep -rq "9cFSf1mS9z1hn2JqZa7298ujHJEN34Uk7HXz0CEu" config/ 2>/dev/null; then
-    fail "Semantic Scholar API key found in config files (should be in .env)"
-else
-    pass "No Semantic Scholar key in config files"
+    pass "No hardcoded API keys in config files"
 fi
 
 if grep -rq "@mail.ubc.ca\|@cu.edu.eg" config/ 2>/dev/null; then
