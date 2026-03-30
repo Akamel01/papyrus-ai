@@ -5,6 +5,86 @@ x-logging: &default-logging
     max-file: "3"
 
 services:
+  # ─── Self-Healing Mount Validator ───
+  # Validates and auto-repairs file mounts before services start
+  # Prevents directory-instead-of-file errors by restoring from templates
+  init-validator:
+    image: alpine:latest
+    container_name: sme_init_validator
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+    volumes:
+      # Parent directories with WRITE access for repair
+      - ./services/caddy:/mnt/caddy:rw
+      - ./config:/mnt/config:rw
+      # Templates for restoration (read-only)
+      - ./.templates:/mnt/templates:ro
+    command: >
+      sh -c '
+        echo "=== Self-Healing Mount Validator ===" &&
+
+        # --- Repair Caddyfile ---
+        if [ -d /mnt/caddy/Caddyfile ]; then
+          echo "REPAIRING: Caddyfile is a directory, removing and restoring..."
+          rm -rf /mnt/caddy/Caddyfile
+          cp /mnt/templates/Caddyfile /mnt/caddy/Caddyfile
+          echo "REPAIRED: Caddyfile restored from template"
+        elif [ ! -f /mnt/caddy/Caddyfile ]; then
+          echo "REPAIRING: Caddyfile missing, restoring from template..."
+          cp /mnt/templates/Caddyfile /mnt/caddy/Caddyfile
+          echo "REPAIRED: Caddyfile created from template"
+        else
+          echo "OK: Caddyfile"
+        fi &&
+
+        # --- Repair config.yaml (application config) ---
+        if [ -d /mnt/config/config.yaml ]; then
+          echo "REPAIRING: config.yaml is a directory, removing and restoring..."
+          rm -rf /mnt/config/config.yaml
+          cp /mnt/templates/config.yaml.template /mnt/config/config.yaml
+          echo "REPAIRED: config.yaml restored from template"
+        elif [ ! -f /mnt/config/config.yaml ]; then
+          echo "REPAIRING: config.yaml missing, restoring from template..."
+          cp /mnt/templates/config.yaml.template /mnt/config/config.yaml
+          echo "REPAIRED: config.yaml created from template"
+        else
+          echo "OK: config.yaml"
+        fi &&
+
+        # --- Repair cloudflared-config.yml ---
+        if [ -d /mnt/config/cloudflared-config.yml ]; then
+          echo "REPAIRING: cloudflared-config.yml is a directory, removing and restoring..."
+          rm -rf /mnt/config/cloudflared-config.yml
+          cp /mnt/templates/cloudflared-config.yml /mnt/config/cloudflared-config.yml
+          echo "REPAIRED: cloudflared-config.yml restored from template"
+        elif [ ! -f /mnt/config/cloudflared-config.yml ]; then
+          echo "REPAIRING: cloudflared-config.yml missing, restoring from template..."
+          cp /mnt/templates/cloudflared-config.yml /mnt/config/cloudflared-config.yml
+          echo "REPAIRED: cloudflared-config.yml created from template"
+        else
+          echo "OK: cloudflared-config.yml"
+        fi &&
+
+        # --- Validate cloudflared-credentials.json (sensitive, no auto-repair) ---
+        if [ -d /mnt/config/cloudflared-credentials.json ]; then
+          echo "ERROR: cloudflared-credentials.json is a directory!"
+          echo "FIX: rm -rf config/cloudflared-credentials.json"
+          echo "Then restore your credentials file manually."
+          exit 1
+        elif [ ! -f /mnt/config/cloudflared-credentials.json ]; then
+          echo "WARNING: cloudflared-credentials.json missing!"
+          echo "Tunnel will not work. Run: cloudflared tunnel create papyrus-tunnel"
+          echo "Continuing without tunnel credentials..."
+        else
+          echo "OK: cloudflared-credentials.json"
+        fi &&
+
+        echo "=== All mounts validated ==="
+      '
+    restart: "no"
+
   redis:
     image: redis:7.4-alpine
     container_name: sme_redis
@@ -13,6 +93,10 @@ services:
     volumes:
       - redis_data:/data
     command: redis-server --appendonly yes
+    deploy:
+      resources:
+        limits:
+          memory: 2G
     healthcheck:
       test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
@@ -35,9 +119,9 @@ services:
     deploy:
       resources:
         limits:
-          memory: 48G # Hard ceiling — prevents swapping on 64GB host
+          memory: 32G # Hard ceiling — leaves headroom for WSL2 + other services
         reservations:
-          memory: 8G # Guaranteed minimum for HNSW graph + SQ index
+          memory: 4G # Guaranteed minimum for HNSW graph + SQ index
     stop_grace_period: 30s # Allow time for WAL flush on shutdown
     healthcheck:
       test: [ "CMD-SHELL", "bash -c '(echo > /dev/tcp/localhost/6333) >/dev/null 2>&1'" ]
@@ -62,6 +146,8 @@ services:
       - OLLAMA_CONTEXT_LENGTH=4096 # Must exceed chunker's max (1600 cl100k tokens ≈ 2500+ Qwen3 tokens)
     deploy:
       resources:
+        limits:
+          memory: 24G
         reservations:
           devices:
             - driver: nvidia
@@ -85,6 +171,9 @@ services:
       - sme_db_data:/app/data # Overlay Named Volume for sme.db
       - sme_hf_model_cache:/root/.cache/huggingface # Mount Reranker HF Cache
       - ./config:/app/config:ro  # Read-only config mount
+    tmpfs:
+      - /tmp
+      - /app/data/papers
     env_file:
       - .env
     environment:
@@ -95,6 +184,8 @@ services:
     # Reranker (BAAI/bge-reranker-v2-m3, 1-2GB) loads on-demand.
     deploy:
       resources:
+        limits:
+          memory: 8G
         reservations:
           devices:
             - driver: nvidia
@@ -125,6 +216,7 @@ services:
     volumes:
       - ./config:/config:ro  # Read-only config mount
       - sme_db_data:/data:rw # Overlay Named Volume for sme.db
+      - ./src:/app/src:ro    # SME source code for document routes (read-only)
     env_file:
       - .env
     environment:
@@ -136,6 +228,8 @@ services:
       # Unified Auth Service configuration
       - USE_UNIFIED_AUTH=true
       - AUTH_SERVICE_URL=http://sme_auth:8000
+    tmpfs:
+      - /app/data/papers
     deploy:
       resources:
         limits:
@@ -184,6 +278,8 @@ services:
     logging: *default-logging
     deploy:
       resources:
+        limits:
+          memory: 256m
         reservations:
           devices:
             - driver: nvidia
@@ -210,6 +306,10 @@ services:
       - MASTER_ENCRYPTION_KEY=${MASTER_ENCRYPTION_KEY}
       - ADMIN_EMAIL=${ADMIN_EMAIL:-}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
+    deploy:
+      resources:
+        limits:
+          memory: 1G
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -228,7 +328,13 @@ services:
       - ./services/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
+    deploy:
+      resources:
+        limits:
+          memory: 512m
     depends_on:
+      init-validator:
+        condition: service_completed_successfully  # Block until mounts validated
       auth:
         condition: service_healthy
       app:
@@ -255,6 +361,10 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - .:/opt/sme:ro
+    deploy:
+      resources:
+        limits:
+          memory: 512m
     healthcheck:
       test: [ "CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:9000/health')\" || exit 1" ]
       interval: 30s
@@ -274,7 +384,13 @@ services:
     volumes:
       - ./config/cloudflared-credentials.json:/etc/cloudflared/credentials.json:ro
       - ./config/cloudflared-config.yml:/etc/cloudflared/config.yml:ro
+    deploy:
+      resources:
+        limits:
+          memory: 256m
     depends_on:
+      init-validator:
+        condition: service_completed_successfully  # Block until mounts validated
       caddy:
         condition: service_healthy
     # Note: No healthcheck - cloudflared is a distroless image with no shell

@@ -1,0 +1,138 @@
+# SME System Configuration Template
+# This file is used by init-validator to restore missing config
+# Last updated: 2026-03-30
+
+system:
+  project_name: "SME Research Assistant"
+  data_dir: "./data"
+  papers_dir: "./DataBase/Papers"
+  log_level: "INFO"
+
+# Hardware: RTX 4070 Super (12GB VRAM) + 64GB RAM
+hardware:
+  gpu_vram_gb: 12
+  system_ram_gb: 64
+
+ingestion:
+  pdf_parser: "pymupdf4llm"
+  fallback_parser: "pymupdf"
+  batch_size: 100
+  max_workers: 4
+  quality_threshold: 0.7
+  checkpoint_interval: 50
+
+chunking:
+  chunk_size: 800
+  chunk_overlap: 150
+  strategy: "hierarchical"
+  min_chunk_size: 100
+  tokenizer: "cl100k_base"
+
+embedding:
+  model_name: "qwen3-embedding:8b"  # Ollama model tag
+  device: "cuda"
+  batch_size: 64
+  normalize: true
+  dimension: 4096
+  quantization: "4bit"
+  remote_url: "http://sme_ollama:11434"  # Routes to Dockerized Ollama
+
+vector_store:
+  type: "qdrant"
+  host: "sme_qdrant"
+  port: 6333
+  collection_name: "sme_papers_v2"
+  on_disk_payload: true
+  timeout: 300
+  hnsw:
+    m: 32
+    ef_construct: 128
+    ef_search: 400
+  quantization:
+    type: "int8"
+    quantile: 0.99
+    always_ram: true
+    oversampling: 2.0
+    rescore: true
+
+bm25:
+  index_path: "./data/bm25_index_tantivy"
+  tokenizer: "word"
+  remove_stopwords: true
+
+retrieval:
+  top_k_initial: 30
+  top_k_rerank: 20
+  top_k_final: 10
+  bm25_weight: 0.3
+  semantic_weight: 0.7
+  use_reranker: true
+  reranker_model: "BAAI/bge-reranker-v2-m3"
+  reranker_device: "cuda"
+  reranker_batch_size: 128
+  reranker_max_length: 512
+  reranker_dtype: "fp16"
+  mmr_diversity: 0.7
+
+librarian:
+  max_chunks: 100
+
+# Fact extraction settings (Scenario 3: Two-Stage Extraction)
+extraction:
+  max_facts:
+    low: 20
+    medium: 40
+    high: 80
+  sample_size: 8
+  density_estimate_default: 3.0
+  early_stop_buffer: 1.1
+  rerank_buffer: 1.25
+  section_mode:
+    facts_per_section:
+      low: 25
+      medium: 40
+      high: 60
+
+generation:
+  llm_provider: "ollama"
+  model_name: "gpt-oss:120b-cloud"
+  base_url: "http://sme_ollama:11434"
+  temperature: 0.1
+  max_tokens: 2000
+  stream: true
+  timeout: 240
+  num_ctx: 65536
+  max_context_length: 60000
+
+chat:
+  context_messages: 10
+  persist_history: true
+  history_db: "./data/chat_history.db"
+
+cache:
+  enabled: true
+  type: "redis"
+  host: "sme_redis"
+  port: 6379
+  ttl_query_embedding: 86400
+  ttl_search_results: 3600
+  ttl_responses: 1800
+
+security:
+  auth_enabled: true
+  session_timeout: 3600
+  max_query_length: 2000
+  audit_logging: true
+
+monitoring:
+  log_queries: true
+  collect_feedback: true
+  metrics_retention_days: 90
+  health_check_interval: 60
+
+resilience:
+  retry_attempts: 3
+  retry_backoff_multiplier: 2
+  retry_max_wait: 30
+  circuit_breaker_threshold: 5
+  circuit_breaker_timeout: 60

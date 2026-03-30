@@ -1,0 +1,74 @@
+# SME Research Assistant - Caddy Reverse Proxy Configuration
+# Routes traffic to appropriate backend services
+
+:80 {
+    # ─── Security Headers ───
+    header {
+        X-Frame-Options "DENY"
+        X-Content-Type-Options "nosniff"
+        X-XSS-Protection "1; mode=block"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; font-src 'self' data: https://cdnjs.cloudflare.com; img-src 'self' data: blob:; connect-src 'self' wss: ws:; worker-src 'self' blob:;"
+        Permissions-Policy "geolocation=(), microphone=(), camera=()"
+    }
+    # ─── Chat UI (Streamlit) ───
+    # Streamlit requires WebSocket support
+    handle /chat* {
+        reverse_proxy app:8501 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+
+    # ─── Streamlit static assets under /chat ───
+    handle /chat/static/* {
+        reverse_proxy app:8501
+    }
+
+    handle /chat/_stcore/* {
+        reverse_proxy app:8501
+    }
+
+    # ─── Streamlit static assets ───
+    handle /_stcore/* {
+        reverse_proxy app:8501
+    }
+    handle /static/* {
+        reverse_proxy app:8501
+    }
+    handle /healthz {
+        reverse_proxy app:8501
+    }
+
+    # ─── Dashboard UI ───
+    # All dashboard routes including /dashboard/assets/* handled by this
+    handle /dashboard* {
+        uri strip_prefix /dashboard
+        reverse_proxy dashboard-ui:3000
+    }
+
+    # ─── Dashboard API ───
+    handle /api/* {
+        reverse_proxy dashboard-backend:8400
+    }
+
+    # ─── Dashboard WebSocket ───
+    # WebSocket for real-time metrics and log streaming
+    handle /ws {
+        reverse_proxy dashboard-backend:8400
+    }
+
+    # ─── Default: Redirect to Chat ───
+    handle {
+        redir /chat permanent
+    }
+
+    # ─── Logging ───
+    log {
+        output stdout
+        format console
+        level INFO
+    }
+}

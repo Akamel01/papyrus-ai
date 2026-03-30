@@ -12,8 +12,9 @@
 3. [Directory Structure](#directory-structure)
 4. [Core Components](#core-components)
 5. [Database Architecture](#database-architecture)
-6. [Network Topology](#network-topology)
-7. [Technology Stack](#technology-stack)
+6. [Self-Healing Architecture](#self-healing-architecture)
+7. [Network Topology](#network-topology)
+8. [Technology Stack](#technology-stack)
 
 ---
 
@@ -657,6 +658,105 @@ CREATE TABLE processing_status (
 - `chunk_id` (stored) - Unique chunk identifier
 - `text` (indexed, tokenized) - Chunk content for search
 - `paper_id` (stored) - Parent paper reference
+
+---
+
+## Self-Healing Architecture
+
+The system implements a three-layer self-healing architecture to ensure minimal downtime and automatic recovery from failures.
+
+### Layer 1: Docker Health Checks
+
+All services have HTTP health checks that Docker monitors. Unhealthy containers are automatically restarted.
+
+| Service | Endpoint | Interval | Restart Policy |
+|---------|----------|----------|----------------|
+| Streamlit App | `/_stcore/health` | 30s | always |
+| Dashboard API | `/health` | 30s | always |
+| Dashboard UI | `/` (wget) | 30s | always |
+| Caddy | `/` (wget) | 30s | always |
+| Qdrant | TCP :6333 | 10s | always |
+| Redis | `redis-cli ping` | 10s | always |
+| Ollama | TCP :11434 | 30s | always |
+| Auth | `/health` | 30s | always |
+
+**Service Dependencies:**
+Services start in order based on health conditions:
+```
+init-validator (completes) → Redis/Qdrant/Ollama (healthy) → App (healthy) → Dashboard → Caddy → Cloudflared
+```
+
+### Layer 2: Pipeline Watchdog with Circuit Breaker
+
+The pipeline process (paper ingestion) is monitored by a watchdog with exponential backoff and circuit breaker pattern.
+
+**Circuit Breaker States:**
+```
+CLOSED ──► OPEN ──► HALF_OPEN ──► CLOSED
+   │         │          │            │
+   │    (5 failures)    │      (success)
+   │         │          │
+   │    (5 min cooldown)│
+   └─────────────────────────────────┘
+        (stability: 60s uptime)
+```
+
+**Backoff Schedule:**
+| Failure # | Wait Time |
+|-----------|-----------|
+| 1 | 10s |
+| 2 | 20s |
+| 3 | 40s |
+| 4 | 80s |
+| 5+ | Circuit OPEN (5 min) |
+
+**State Persistence:**
+Failure metadata is persisted to `/app/data/pipeline_state_internal.json`:
+```json
+{
+  "mode": "stream",
+  "restart_count": 3,
+  "consecutive_failures": 2,
+  "circuit_breaker_state": "CLOSED",
+  "last_error": "Process died unexpectedly"
+}
+```
+
+### Layer 3: Init Validator (Startup Repair)
+
+The `init-validator` container runs before all services and repairs common configuration issues.
+
+**Auto-Repaired Files:**
+| File | Template | Action |
+|------|----------|--------|
+| `config/config.yaml` | `.templates/config.yaml.template` | Restore if missing/corrupt |
+| `services/caddy/Caddyfile` | `.templates/Caddyfile` | Restore if missing/corrupt |
+| `config/cloudflared-config.yml` | `.templates/cloudflared-config.yml` | Restore if missing/corrupt |
+
+**Not Auto-Repaired (Sensitive):**
+- `config/cloudflared-credentials.json` - Contains tunnel secrets, requires manual regeneration
+
+**Repair Logic:**
+```bash
+if [ -d /path/to/file ]; then
+  # File is a directory (Docker mount error) - delete and restore
+  rm -rf /path/to/file
+  cp /template /path/to/file
+elif [ ! -f /path/to/file ]; then
+  # File missing - restore from template
+  cp /template /path/to/file
+fi
+```
+
+### Recovery Scenarios
+
+| Scenario | Detection | Recovery | Downtime |
+|----------|-----------|----------|----------|
+| Service hang | Health check (90s) | Docker restart | ~2 min |
+| Service crash | Immediate | Docker restart | ~30s |
+| Pipeline crash | Watchdog (10s) | Backoff restart | 10s-5min |
+| Config missing | Startup | Template restore | 0s |
+| Config corrupt | Startup | Template restore | 0s |
 
 ---
 

@@ -13,13 +13,14 @@ This guide helps you solve common issues with the SME Research Assistant. Each s
 
 1. [Docker Issues](#docker-issues)
 2. [Service Startup Failures](#service-startup-failures)
-3. [Authentication Issues](#authentication-issues)
-4. [Cloudflare Tunnel Issues](#cloudflare-tunnel-issues)
-5. [GPU and Ollama Issues](#gpu-and-ollama-issues)
-6. [Retrieval and Search Issues](#retrieval-and-search-issues)
-7. [Database Issues](#database-issues)
-8. [Network Issues](#network-issues)
-9. [Quick Diagnostic Commands](#quick-diagnostic-commands)
+3. [Pipeline Issues](#pipeline-issues)
+4. [Authentication Issues](#authentication-issues)
+5. [Cloudflare Tunnel Issues](#cloudflare-tunnel-issues)
+6. [GPU and Ollama Issues](#gpu-and-ollama-issues)
+7. [Retrieval and Search Issues](#retrieval-and-search-issues)
+8. [Database Issues](#database-issues)
+9. [Network Issues](#network-issues)
+10. [Quick Diagnostic Commands](#quick-diagnostic-commands)
 
 ---
 
@@ -297,6 +298,125 @@ View watchdog logs: `Get-Content logs/docker-watchdog.log -Tail 20`
    ```
 
 4. **Access the system at the new port:** http://localhost:9080/chat
+
+---
+
+## Pipeline Issues
+
+### Pipeline Keeps Restarting (Circuit Breaker)
+
+**Symptoms:**
+- Pipeline starts, runs briefly, then stops
+- Log messages showing "Failure #1", "Failure #2", etc.
+- Eventually see: "Circuit OPEN: 5 consecutive failures"
+- Pipeline stops attempting restarts for 5 minutes
+
+**Cause:**
+The pipeline watchdog uses a circuit breaker pattern to prevent infinite restart loops. After 5 consecutive failures, it "opens" the circuit and waits 5 minutes before trying again.
+
+**Solution:**
+
+1. **Check the pipeline logs for the root cause:**
+   ```bash
+   docker compose exec app cat /app/data/autonomous_update.log | tail -100
+   ```
+
+2. **Check the pipeline state file:**
+   ```bash
+   docker compose exec app cat /app/data/pipeline_state_internal.json
+   ```
+
+   Look for `last_error` and `consecutive_failures` fields.
+
+3. **Common causes and fixes:**
+
+   **Ollama not ready:**
+   ```bash
+   docker compose logs ollama
+   docker compose restart ollama
+   # Wait for model to load, then restart pipeline
+   ```
+
+   **Qdrant connection failed:**
+   ```bash
+   docker compose logs qdrant
+   docker compose restart qdrant
+   ```
+
+   **Out of memory:**
+   - Reduce batch sizes in `config/config.yaml`
+   - Check Docker memory limits
+
+4. **Manually reset the circuit breaker:**
+   ```bash
+   # Stop the app container
+   docker compose stop app
+
+   # Remove the state file to reset circuit breaker
+   docker compose run --rm app rm -f /app/data/pipeline_state_internal.json
+
+   # Restart the app
+   docker compose up -d app
+   ```
+
+5. **Wait for automatic recovery:**
+   - After 5 minutes, the circuit enters "half-open" state
+   - One test restart is attempted
+   - If successful, normal operation resumes
+
+---
+
+### Pipeline Backoff Delays
+
+**Symptoms:**
+- Pipeline restarts are slow after failures
+- Log messages show "waiting 40s before restart"
+- Delays increase with each failure
+
+**Explanation:**
+This is expected behavior. The watchdog uses exponential backoff to prevent resource exhaustion:
+
+| Failure # | Wait Time |
+|-----------|-----------|
+| 1 | 10 seconds |
+| 2 | 20 seconds |
+| 3 | 40 seconds |
+| 4 | 80 seconds |
+| 5+ | Circuit OPEN (5 minutes) |
+
+**Solution:**
+Fix the underlying issue causing failures. Once the pipeline runs stably for 60 seconds, the failure count resets to zero.
+
+---
+
+### Config File Missing at Startup
+
+**Symptoms:**
+- App fails to start with "Config file not found"
+- Error in logs: "FileNotFoundError: config/config.yaml"
+
+**Cause:**
+The config file is missing or was accidentally deleted/corrupted.
+
+**Solution:**
+
+1. **The init-validator should auto-repair this.** Check its logs:
+   ```bash
+   docker compose logs init-validator
+   ```
+
+2. **If auto-repair failed, manually restore from template:**
+   ```bash
+   cp .templates/config.yaml.template config/config.yaml
+   docker compose up -d
+   ```
+
+3. **If the file exists but is empty or corrupt:**
+   ```bash
+   rm config/config.yaml
+   cp .templates/config.yaml.template config/config.yaml
+   docker compose restart app
+   ```
 
 ---
 
