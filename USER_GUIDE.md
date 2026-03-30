@@ -10,10 +10,13 @@ A multi-user research assistant that helps you explore academic literature using
 2. [Starting the System](#starting-the-system)
 3. [Creating an Account](#creating-an-account)
 4. [Using the Chat Interface](#using-the-chat-interface)
-5. [Adding Papers to Your Library](#adding-papers-to-your-library)
-6. [Using the Dashboard](#using-the-dashboard)
-7. [Configuration Options](#configuration-options)
-8. [Troubleshooting](#troubleshooting)
+5. [Quick Upload (Session Documents)](#quick-upload-session-documents)
+6. [My Documents (Dashboard)](#my-documents-dashboard)
+7. [Knowledge Source Selection](#knowledge-source-selection)
+8. [Adding Papers to Your Library](#adding-papers-to-your-library)
+9. [Using the Dashboard](#using-the-dashboard)
+10. [Configuration Options](#configuration-options)
+11. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -45,6 +48,30 @@ Edit `.env` and fill in the required values:
 openssl rand -base64 32  # Use output for JWT_SECRET
 openssl rand -base64 32  # Use output for MASTER_ENCRYPTION_KEY
 ```
+
+### Step 3: Obtain API Credentials
+
+The system requires API keys from academic data providers. Obtain these for free:
+
+#### OpenAlex API
+- **URL**: https://openalex.org/
+- **Steps**:
+  1. Visit https://openalex.org/
+  2. API access is free - no registration required
+  3. (Optional) Register for higher rate limits
+  4. Add to `.env`: `OPENALEX_API_KEY=your_key_here`
+
+#### Semantic Scholar API
+- **URL**: https://www.semanticscholar.org/product/api
+- **Steps**:
+  1. Visit https://www.semanticscholar.org/product/api
+  2. Sign up for a free account
+  3. Generate API key from your account dashboard
+  4. Add to `.env`: `SEMANTIC_SCHOLAR_API_KEY=your_key_here`
+
+#### Email for API Identification
+- **Add to `.env`**: `SME_EMAILS=your-email@example.com`
+- Used by APIs to identify your application
 
 Your `.env` file should look like:
 
@@ -171,6 +198,8 @@ Each response includes:
 
 | Option | Description |
 |--------|-------------|
+| **Quick Upload** | Upload temporary documents for this session |
+| **Knowledge Base** | Choose data sources: Both, Shared KB Only, or My Documents Only |
 | **Research Depth** | Low (fast), Medium (balanced), High (thorough) |
 | **Model** | Select the LLM model for generation |
 | **Sequential Mode** | Enable multi-round reasoning for complex questions |
@@ -181,6 +210,108 @@ Each response includes:
 ### Follow-up Questions
 
 After receiving a response, type follow-up questions in the chat input at the bottom. The system maintains conversation context.
+
+---
+
+## Quick Upload (Session Documents)
+
+Quick Upload allows you to add temporary documents for immediate use in your chat session. Perfect for when you have a specific paper or document you want the AI to reference.
+
+### How to Use
+
+1. In the sidebar, find the **"Quick Upload"** section
+2. Drag and drop a file, or click to browse
+3. The document text is extracted and immediately available
+4. Ask questions referencing your uploaded document
+
+### Limits and Behavior
+
+| Aspect | Value |
+|--------|-------|
+| **Max file size** | 10MB per file |
+| **Max files** | 3 per session |
+| **File types** | PDF, MD, TXT, DOCX |
+| **Persistence** | Session only (cleared on page refresh) |
+| **Priority** | Highest (always included in context) |
+
+### Tips
+
+- Quick Uploads are **always included** regardless of your Knowledge Source selection
+- Great for asking questions about a specific paper you're reading
+- Use the "X" button to remove individual files
+- Refreshing the page clears all Quick Uploads
+
+---
+
+## My Documents (Dashboard)
+
+My Documents allows you to upload documents permanently to your personal knowledge base. These documents go through the full embedding pipeline and become searchable.
+
+### How to Use
+
+1. Go to Dashboard → **My Documents** (http://localhost:8080/dashboard/documents)
+2. Drag and drop files or click to browse
+3. Files appear with status "Pending"
+4. Click **"Process"** on individual files, or **"Process All"** for batch processing
+5. Wait for status to change: Pending → Processing → Ready
+
+### Document Statuses
+
+| Status | Meaning |
+|--------|---------|
+| **Pending** | Uploaded, not yet processed |
+| **Processing** | Currently being embedded (may take a few minutes) |
+| **Ready** | Fully indexed and searchable |
+| **Failed** | Processing error (click for details) |
+
+### Limits
+
+| Aspect | Value |
+|--------|-------|
+| **Max file size** | 50MB per file |
+| **Max files** | Unlimited |
+| **File types** | PDF, MD, DOCX |
+| **Persistence** | Permanent (until deleted) |
+
+### Deleting Documents
+
+1. Click the trash icon next to any document
+2. Confirm deletion
+3. The document is removed from:
+   - Vector database (Qdrant)
+   - Keyword index (BM25)
+   - Database record
+   - Disk storage
+
+You can also select multiple documents and click "Delete Selected" for batch deletion.
+
+---
+
+## Knowledge Source Selection
+
+Control which documents are searched when you ask questions.
+
+### Options
+
+Located in the sidebar under **"Knowledge Base"**:
+
+| Option | Description |
+|--------|-------------|
+| **Both (Recommended)** | Search your documents AND the shared knowledge base |
+| **Shared KB Only** | Only search the shared knowledge base (papers from discovery pipeline) |
+| **My Documents Only** | Only search your uploaded documents |
+
+### Context Priority
+
+When "Both" is selected, results are prioritized:
+
+1. **Quick Uploads** - Always highest priority (shown first in context)
+2. **My Documents** - Your uploaded and processed documents
+3. **Shared KB** - Papers from the automatic discovery pipeline
+
+### Note
+
+Quick Uploads are **always included** regardless of your Knowledge Source selection. This ensures documents you explicitly upload to your chat session are always used.
 
 ---
 
@@ -257,9 +388,20 @@ print(f'Failed: {stats[\"failed\"]}')
 
 Access the Dashboard at http://localhost:8080/dashboard
 
+### My Documents
+
+Upload and manage your personal document collection:
+
+- **Upload**: Drag-drop or browse for PDF, MD, DOCX files (up to 50MB)
+- **Process**: Click to embed documents into your searchable knowledge base
+- **Status**: Track processing progress (Pending → Processing → Ready)
+- **Delete**: Remove documents with full cleanup (vectors, index, files)
+
+See [My Documents (Dashboard)](#my-documents-dashboard) for detailed instructions.
+
 ### Papers View
 
-- View all papers in your library
+- View all papers in the shared library
 - Filter by status (discovered, downloaded, embedded, failed)
 - See paper metadata (title, authors, year, DOI)
 - Monitor processing progress
