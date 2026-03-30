@@ -17,8 +17,13 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
             setTokens(res.access_token, res.refresh_token)
             localStorage.setItem('user_role', res.role)
             onLogin()
-        } catch {
-            setError('Invalid credentials')
+        } catch (err) {
+            // Show specific error message if available
+            if (err instanceof Error && 'detail' in err) {
+                setError((err as Error & { detail: string }).detail)
+            } else {
+                setError('Invalid username/email or password')
+            }
         } finally {
             setLoading(false)
         }
@@ -53,7 +58,7 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
 
                     <div>
                         <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--color-text-secondary)' }}>
-                            Username
+                            Username or Email
                         </label>
                         <div className="relative">
                             <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2"
@@ -65,7 +70,7 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
                                     border: '1px solid var(--color-border)',
                                     color: 'var(--color-text-primary)',
                                 }}
-                                placeholder="Enter username" autoFocus />
+                                placeholder="Enter username or email" autoFocus />
                         </div>
                     </div>
 

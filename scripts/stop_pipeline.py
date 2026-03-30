@@ -12,10 +12,13 @@ def stop_pipeline():
             cmdline = proc.info['cmdline']
             if cmdline and 'python' in cmdline[0] and any('autonomous_update.py' in arg for arg in cmdline):
                 pid = proc.info['pid']
-                print(f"Found pipeline process (PID: {pid}). Sending SIGINT...")
+                print(f"Found pipeline process (PID: {pid}). Sending SIGINT to process group...")
                 
-                # Send SIGINT (CTRL+C) to allow graceful shutdown
-                proc.send_signal(signal.SIGINT)
+                # Send SIGINT (CTRL+C) to entire process group to allow graceful shutdown
+                try:
+                    os.killpg(os.getpgid(pid), signal.SIGINT)
+                except (AttributeError, ProcessLookupError):
+                    proc.send_signal(signal.SIGINT)
                 found = True
                 
                 try:

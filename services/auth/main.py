@@ -287,6 +287,15 @@ class RegisterRequest(BaseModel):
     password: str
     display_name: Optional[str] = None
 
+    @field_validator("email")
+    @classmethod
+    def validate_email_not_reserved(cls, v):
+        """Prevent registration with reserved usernames."""
+        local_part = v.split("@")[0].lower()
+        if local_part == "admin":
+            raise ValueError("The username 'admin' is reserved and cannot be used for registration")
+        return v
+
     @field_validator("password")
     @classmethod
     def validate_password(cls, v):
@@ -300,8 +309,17 @@ class RegisterRequest(BaseModel):
 
 
 class LoginRequest(BaseModel):
-    email: EmailStr
+    """Login request - accepts email or username."""
+    email: Optional[str] = None  # Can be email or username
+    username: Optional[str] = None  # Alternative field name
     password: str
+
+    @field_validator("email", "username", mode="before")
+    @classmethod
+    def strip_whitespace(cls, v):
+        if isinstance(v, str):
+            return v.strip()
+        return v
 
 
 class InternalLoginRequest(BaseModel):
@@ -454,7 +472,7 @@ async def register(request: RegisterRequest, req: Request, db: DBSession = Depen
 
 @app.post("/api/auth/login", response_model=TokenPair)
 async def login(request: LoginRequest, req: Request, db: DBSession = Depends(get_db)):
-    """Login with email and password."""
+    """Login with email/username and password."""
     client_ip = get_client_ip(req)
     user_agent = get_user_agent(req)
 
@@ -474,7 +492,25 @@ async def login(request: LoginRequest, req: Request, db: DBSession = Depends(get
             detail="Too many requests. Please wait a minute."
         )
 
-    user = db.query(User).filter(User.email == request.email).first()
+    # Get identifier from either email or username field
+    identifier = request.email or request.username
+    if not identifier:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Please enter your username or email address"
+        )
+
+    # Try to find user by email first
+    user = db.query(User).filter(User.email == identifier).first()
+
+    # If not found, try by username column
+    if not user:
+        user = db.query(User).filter(User.username == identifier).first()
+
+    # If still not found and identifier doesn't look like an email, try as dashboard username
+    if not user and "@" not in identifier:
+        dashboard_email = f"{identifier}@dashboard.local"
+        user = db.query(User).filter(User.email == dashboard_email).first()
 
     if not user or not verify_password(request.password, user.password_hash):
         # Record failed login attempt
@@ -485,7 +521,7 @@ async def login(request: LoginRequest, req: Request, db: DBSession = Depends(get
             user_id=user.id if user else None,
             ip_address=client_ip,
             user_agent=user_agent,
-            details={"email": request.email, "reason": "invalid_credentials"}
+            details={"identifier": identifier, "reason": "invalid_credentials"}
         )
         db.commit()
 
@@ -496,7 +532,7 @@ async def login(request: LoginRequest, req: Request, db: DBSession = Depends(get
             )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password"
+            detail="Invalid username/email or password"
         )
 
     if user.is_active != "true":
@@ -542,7 +578,7 @@ async def login(request: LoginRequest, req: Request, db: DBSession = Depends(get
         user_id=user.id,
         ip_address=client_ip,
         user_agent=user_agent,
-        details={"email": request.email}
+        details={"email": user.email, "identifier_used": identifier}
     )
 
     db.commit()
@@ -560,12 +596,17 @@ async def internal_login(request: InternalLoginRequest, db: DBSession = Depends(
 
     Accepts username which can be either:
     - Email address (standard login)
+    - Username field in User model
     - Username mapped to {username}@dashboard.local (for migrated dashboard users)
     """
     # Try to find user by email directly first
     user = db.query(User).filter(User.email == request.username).first()
 
-    # If not found, try treating username as a dashboard username (mapped to email)
+    # If not found, try by username column
+    if not user:
+        user = db.query(User).filter(User.username == request.username).first()
+
+    # If still not found, try treating username as a dashboard username (mapped to email)
     if not user:
         dashboard_email = f"{request.username}@dashboard.local"
         user = db.query(User).filter(User.email == dashboard_email).first()

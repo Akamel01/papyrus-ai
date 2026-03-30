@@ -278,7 +278,7 @@ def compute_optimal_params(
         # Optimizer
         "segment_count":        min(cpu_cores, 8),
         "max_segment_size":     500_000,
-        "indexing_threshold":   100_000,
+        "indexing_threshold":   200_000,  # User-requested bulk threshold to reduce mid-stream I/O locks
         "flush_interval_sec":   5,
     }
 
@@ -595,7 +595,7 @@ def wait_for_index_ready(
                     payload = {
                         "optimizers_config": {
                             "max_segment_size": current_max_seg,
-                            "indexing_threshold": 20000,
+                            "indexing_threshold": 200000,
                             "memmap_threshold": 20000,
                         }
                     }

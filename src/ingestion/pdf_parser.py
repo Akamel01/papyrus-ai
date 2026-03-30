@@ -104,8 +104,29 @@ class PyMuPDFParser(DocumentParser):
     def _parse_markdown(self, file_path: Path, doi: str) -> Document:
         """Extract using pymupdf4llm for structured markdown."""
         import pymupdf4llm
+        import fitz
+        import gc
         
-        md_text = pymupdf4llm.to_markdown(str(file_path))
+        doc = fitz.open(file_path)
+        total_pages = doc.page_count
+        
+        # Smart OCR Page Batching to prevent explosive OOM RAM spikes from Tesseract
+        batch_size = 5
+        md_text = ""
+        
+        for start_idx in range(0, total_pages, batch_size):
+            end_idx = min(start_idx + batch_size, total_pages)
+            page_numbers = list(range(start_idx, end_idx))
+            
+            # Pass the open document and specific pages subset
+            batch_md = pymupdf4llm.to_markdown(doc, pages=page_numbers, write_images=False)
+            md_text += batch_md + "\n\n"
+            
+            # Wipe local bindings and force aggressive memory clearance
+            del batch_md
+            gc.collect()
+            
+        doc.close()
         
         # Parse markdown to extract sections
         sections, section_spans = self._parse_sections_from_markdown(md_text)

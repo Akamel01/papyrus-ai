@@ -23,7 +23,22 @@
       "Bash(echo:*)",
       "Bash(./cloudflared.exe tunnel route dns:*)",
       "Bash(python -c:*)",
-      "Bash(gh auth status:*)"
+      "Bash(gh auth status:*)",
+      "Bash(\"C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe\" run list --repo Akamel01/papyrus-ai --limit 5)",
+      "Bash(\"C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe\" run list --repo Akamel01/papyrus-ai --status failure --limit 10)",
+      "Bash(\"C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe\" run list --repo Akamel01/papyrus-ai --branch main --limit 10)",
+      "Bash(\"C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe\" run view 23387969499 --repo Akamel01/papyrus-ai --log-failed)",
+      "Bash(\"C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe\" run list --repo Akamel01/papyrus-ai --limit 1 --workflow ci.yml)",
+      "Bash(\"C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe\" run list --repo Akamel01/papyrus-ai --limit 3 --json status,conclusion,name,createdAt --jq '.[] | \"\"\\\\\\(.status\\) | \\\\\\(.conclusion // \"\"running\"\"\\) | \\\\\\(.name\\)\"\"')",
+      "Bash(npm run build:*)",
+      "Read(//c/Users/taahm/.cloudflared/**)",
+      "Bash(cloudflared tunnel info:*)",
+      "Bash(powershell.exe -Command \"Get-PSDrive C | Select-Object Used,Free,@{N=''UsedGB'';E={[math]::Round\\($_Used/1GB,2\\)}},@{N=''FreeGB'';E={[math]::Round\\($_Free/1GB,2\\)}}\")",
+      "Bash(wmic logicaldisk get:*)"
+    ],
+    "additionalDirectories": [
+      "\\mnt\\c\\Users\\taahm\\.cloudflared",
+      "C:\\Users\\taahm\\.cloudflared"
     ]
   }
 }

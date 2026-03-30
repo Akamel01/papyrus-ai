@@ -1,7 +1,17 @@
-import { useEffect, useState, useRef } from 'react'
-import Editor from '@monaco-editor/react'
+import { useEffect, useState, useRef, useCallback } from 'react'
+import Editor, { loader } from '@monaco-editor/react'
 import { config } from '../lib/api'
-import { Check, AlertTriangle, X, RotateCcw, Save, FileCheck } from 'lucide-react'
+import { Check, AlertTriangle, X, RotateCcw, Save, FileCheck, Loader2, RefreshCw } from 'lucide-react'
+
+// Multiple CDN sources for Monaco Editor with fallbacks
+const CDN_SOURCES = [
+    'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs',  // Primary (fastest)
+    'https://unpkg.com/monaco-editor@0.45.0/min/vs',              // Fallback 1
+    'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs'  // Fallback 2
+]
+
+// Initialize with first CDN source
+loader.config({ paths: { vs: CDN_SOURCES[0] } })
 
 export default function ConfigEditor() {
     const [yaml, setYaml] = useState('')
@@ -10,7 +20,56 @@ export default function ConfigEditor() {
     const [validation, setValidation] = useState<{ valid: boolean; errors: Array<{ line: number; msg: string }>; warnings: Array<{ line: number; msg: string }> } | null>(null)
     const [saving, setSaving] = useState(false)
     const [status, setStatus] = useState<string>('')
+    const [editorReady, setEditorReady] = useState(false)
+    const [loadError, setLoadError] = useState(false)
+    const [loadingCdn, setLoadingCdn] = useState<string | null>(CDN_SOURCES[0])
+    const [retrying, setRetrying] = useState(false)
     const originalYaml = useRef('')
+    const cdnIndexRef = useRef(0)
+
+    // Try loading Monaco from CDN with fallbacks
+    const tryLoadMonaco = useCallback(async (startIndex = 0) => {
+        setRetrying(true)
+        setLoadError(false)
+
+        for (let i = startIndex; i < CDN_SOURCES.length; i++) {
+            const cdn = CDN_SOURCES[i]
+            cdnIndexRef.current = i
+            setLoadingCdn(cdn)
+
+            try {
+                // Configure loader with current CDN
+                loader.config({ paths: { vs: cdn } })
+
+                // Try to initialize Monaco with 10s timeout per CDN
+                await Promise.race([
+                    loader.init(),
+                    new Promise((_, reject) =>
+                        setTimeout(() => reject(new Error('Timeout')), 10000)
+                    )
+                ])
+
+                // Success!
+                setLoadingCdn(null)
+                setRetrying(false)
+                return true
+            } catch (err) {
+                console.warn(`Monaco CDN failed (${cdn}):`, err)
+            }
+        }
+
+        // All CDNs failed
+        setLoadError(true)
+        setLoadingCdn(null)
+        setRetrying(false)
+        return false
+    }, [])
+
+    // Retry button handler
+    const handleRetryLoad = () => {
+        setEditorReady(false)
+        tryLoadMonaco(0)
+    }
 
     useEffect(() => {
         config.get().then(res => {
@@ -18,7 +77,22 @@ export default function ConfigEditor() {
             setEtag(res.etag)
             originalYaml.current = res.yaml
         }).catch(() => setStatus('Failed to load config'))
-    }, [])
+
+        // Timeout for editor loading (30 seconds total)
+        const timeout = setTimeout(() => {
+            if (!editorReady && !loadError) {
+                // Try next CDN if available
+                const nextIndex = cdnIndexRef.current + 1
+                if (nextIndex < CDN_SOURCES.length) {
+                    tryLoadMonaco(nextIndex)
+                } else {
+                    setLoadError(true)
+                }
+            }
+        }, 30000)
+
+        return () => clearTimeout(timeout)
+    }, [editorReady, loadError, tryLoadMonaco])
 
     const handleValidate = async () => {
         try {
@@ -93,24 +167,69 @@ export default function ConfigEditor() {
 
             {/* Editor */}
             <div className="monaco-container flex-1 min-h-0">
-                <Editor
-                    height="100%"
-                    language="yaml"
-                    theme="vs-dark"
-                    value={yaml}
-                    onChange={(val) => { setYaml(val || ''); setModified(val !== originalYaml.current) }}
-                    options={{
-                        minimap: { enabled: false },
-                        fontSize: 13,
-                        fontFamily: 'JetBrains Mono, Fira Code, monospace',
-                        lineNumbers: 'on',
-                        scrollBeyondLastLine: false,
-                        wordWrap: 'on',
-                        tabSize: 2,
-                        renderLineHighlight: 'gutter',
-                        padding: { top: 8 },
-                    }}
-                />
+                {loadError ? (
+                    <div className="flex flex-col items-center justify-center h-full" style={{ background: 'var(--color-bg-primary)', borderRadius: 6 }}>
+                        <AlertTriangle size={32} style={{ color: 'var(--color-warning)' }} />
+                        <p className="text-sm mt-3" style={{ color: 'var(--color-text-secondary)' }}>
+                            Editor failed to load (all CDN sources unreachable)
+                        </p>
+                        <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
+                            Check your network connection and try again
+                        </p>
+                        <button
+                            onClick={handleRetryLoad}
+                            disabled={retrying}
+                            className="flex items-center gap-2 mt-3 px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer disabled:opacity-50"
+                            style={{ background: 'var(--color-accent)', color: '#fff' }}
+                        >
+                            <RefreshCw size={14} className={retrying ? 'animate-spin' : ''} />
+                            {retrying ? 'Retrying...' : 'Retry Loading Editor'}
+                        </button>
+                        <p className="text-xs mt-4 mb-2" style={{ color: 'var(--color-text-muted)' }}>
+                            Or use the fallback text editor:
+                        </p>
+                        <textarea
+                            className="w-full max-w-2xl h-64 p-3 rounded-lg font-mono text-xs"
+                            style={{ background: 'var(--color-bg-elevated)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)' }}
+                            value={yaml}
+                            onChange={(e) => { setYaml(e.target.value); setModified(e.target.value !== originalYaml.current) }}
+                            placeholder="YAML config will appear here..."
+                        />
+                    </div>
+                ) : (
+                    <Editor
+                        height="100%"
+                        language="yaml"
+                        theme="vs-dark"
+                        value={yaml}
+                        onChange={(val) => { setYaml(val || ''); setModified(val !== originalYaml.current) }}
+                        onMount={() => setEditorReady(true)}
+                        loading={
+                            <div className="flex flex-col items-center justify-center h-full" style={{ background: 'var(--color-bg-primary)' }}>
+                                <div className="flex items-center">
+                                    <Loader2 className="animate-spin" size={24} style={{ color: 'var(--color-accent)' }} />
+                                    <span className="ml-2 text-sm" style={{ color: 'var(--color-text-secondary)' }}>Loading editor...</span>
+                                </div>
+                                {loadingCdn && (
+                                    <span className="mt-2 text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                                        CDN: {loadingCdn.split('/')[2]}
+                                    </span>
+                                )}
+                            </div>
+                        }
+                        options={{
+                            minimap: { enabled: false },
+                            fontSize: 13,
+                            fontFamily: 'JetBrains Mono, Fira Code, monospace',
+                            lineNumbers: 'on',
+                            scrollBeyondLastLine: false,
+                            wordWrap: 'on',
+                            tabSize: 2,
+                            renderLineHighlight: 'gutter',
+                            padding: { top: 8 },
+                        }}
+                    />
+                )}
             </div>
 
             {/* Validation Panel */}

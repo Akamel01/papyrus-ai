@@ -217,6 +217,13 @@ chunking:
 - Resume thread handles backlog in background at startup
 - Batch commits to Tantivy (50 papers or 5s timeout) for efficiency
 
+**Tantivy Writer Pattern (Critical for Windows):**
+
+The BM25Worker uses a **persistent writer** acquired once at startup and held until shutdown:
+- Avoids `LockBusy` errors caused by per-batch writer creation on Windows
+- Writer is reused for all batches; only `commit()` is called between batches
+- Writer is released only on graceful shutdown
+
 **Qdrant Point:**
 ```json
 {

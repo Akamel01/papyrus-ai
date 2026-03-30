@@ -10,3 +10,7 @@ psutil==6.1.1
 websockets==14.1
 python-multipart==0.0.19
 prometheus_client==0.21.1
+# Dependencies for documents API (SME imports)
+qdrant-client>=1.9.0
+tantivy>=0.22.0
+requests>=2.31.0

@@ -1,6 +1,6 @@
 """DLQ routes: list, retry, skip."""
 from fastapi import APIRouter, HTTPException, Depends
-from auth import require_operator, TokenPayload
+from auth import require_viewer, require_admin, TokenPayload
 import db_reader
 from audit_logger import log_audit
 
@@ -8,12 +8,12 @@ router = APIRouter()
 
 
 @router.get("")
-async def list_dlq(status: str = "pending", _user: TokenPayload = Depends(require_operator)):
+async def list_dlq(status: str = "pending", _user: TokenPayload = Depends(require_viewer)):
     return db_reader.get_dlq_items(status)
 
 
 @router.post("/{dlq_id}/retry")
-async def retry_item(dlq_id: int, user: TokenPayload = Depends(require_operator)):
+async def retry_item(dlq_id: int, user: TokenPayload = Depends(require_admin)):
     try:
         db_reader.retry_dlq_item(dlq_id)
         log_audit(user.sub, "dlq.retry", {"dlq_id": dlq_id})
@@ -23,7 +23,7 @@ async def retry_item(dlq_id: int, user: TokenPayload = Depends(require_operator)
 
 
 @router.post("/{dlq_id}/skip")
-async def skip_item(dlq_id: int, user: TokenPayload = Depends(require_operator)):
+async def skip_item(dlq_id: int, user: TokenPayload = Depends(require_admin)):
     db_reader.skip_dlq_item(dlq_id)
     log_audit(user.sub, "dlq.skip", {"dlq_id": dlq_id})
     return {"ok": True}

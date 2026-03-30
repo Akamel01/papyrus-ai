@@ -169,7 +169,7 @@ class OllamaReranker(Reranker):
             "options": {
                 "num_predict": 20,
                 "temperature": 0,
-                "num_ctx": 4096,
+                "num_ctx": 1024,
             },
         }
 

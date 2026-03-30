@@ -1,12 +1,14 @@
 import { useEffect, useState, useRef } from 'react'
-import { Play, Square, FlaskConical, SkipForward, RotateCcw, Pause, ClipboardCopy } from 'lucide-react'
-import { run, dlq } from '../lib/api'
+import { Play, Square, FlaskConical, SkipForward, RotateCcw, Pause, ClipboardCopy, Info } from 'lucide-react'
+import { run, dlq, getRole } from '../lib/api'
 import { dashboardWS } from '../lib/websocket'
 
 interface LogLine { ts: string; level: string; stage: string; msg: string }
 interface DLQItem { id: number; paper_id: string; stage: string; error: string; retry_count: number; status: string }
 
 export default function RunControls() {
+    const userRole = getRole()
+    const isAdmin = userRole === 'admin'
     const [status, setStatus] = useState<{ running: boolean; pid?: number; mode?: string; uptime_sec?: number }>({ running: false })
     const [logs, setLogs] = useState<LogLine[]>([])
     const [paused, setPaused] = useState(false)
@@ -45,6 +47,12 @@ export default function RunControls() {
         }
     }, [logs, paused])
 
+    // Send filter criteria to the backend websocket so it stops transmitting unmatched 
+    // logs that otherwise instantly overflow the 500-item frontend scrolling buffer.
+    useEffect(() => {
+        dashboardWS.send('log.filter', { search: filter })
+    }, [filter])
+
     const handleStart = async (mode: string) => {
         try { await run.start(mode); run.status().then(setStatus) }
         catch (e: unknown) { alert(e instanceof Error ? e.message : 'Start failed') }
@@ -76,31 +84,41 @@ export default function RunControls() {
 
     return (
         <div className="space-y-3 h-full flex flex-col">
+            {/* Read-only banner for non-admins */}
+            {!isAdmin && (
+                <div className="flex items-center gap-2 px-4 py-3 rounded-lg"
+                    style={{ background: 'var(--color-bg-elevated)', border: '1px solid var(--color-border)' }}>
+                    <Info size={16} style={{ color: 'var(--color-accent)' }} />
+                    <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                        This page is read-only. Only administrators can control the pipeline.
+                    </span>
+                </div>
+            )}
             {/* Controls */}
             <div className="card-compact flex flex-wrap items-center gap-3">
-                <button onClick={() => handleStart('stream')} disabled={status.running}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer disabled:opacity-40"
+                <button onClick={() => handleStart('stream')} disabled={status.running || !isAdmin}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                     style={{ background: 'var(--color-success)', color: '#fff' }}>
                     <Play size={14} /> Start Stream
                 </button>
-                <button onClick={() => handleStart('embed-only')} disabled={status.running}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer disabled:opacity-40"
+                <button onClick={() => handleStart('embed-only')} disabled={status.running || !isAdmin}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                     style={{ background: 'var(--color-accent)', color: '#fff' }}>
                     <Play size={14} /> Embed Only
                 </button>
-                <button onClick={() => handleStart('test')} disabled={status.running}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer disabled:opacity-40"
+                <button onClick={() => handleStart('test')} disabled={status.running || !isAdmin}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                     style={{ background: 'var(--color-warning)', color: '#000' }}>
                     <FlaskConical size={14} /> Test Run
                 </button>
                 <div className="w-px h-6" style={{ background: 'var(--color-border)' }} />
-                <button onClick={() => handleStop(false)} disabled={!status.running}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer disabled:opacity-40"
+                <button onClick={() => handleStop(false)} disabled={!status.running || !isAdmin}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                     style={{ background: 'var(--color-bg-elevated)', color: 'var(--color-text-primary)' }}>
                     <Square size={14} /> Stop
                 </button>
-                <button onClick={() => handleStop(true)} disabled={!status.running}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer disabled:opacity-40"
+                <button onClick={() => handleStop(true)} disabled={!status.running || !isAdmin}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                     style={{ background: 'var(--color-error)', color: '#fff' }}>
                     <Square size={14} /> Force Stop
                 </button>
@@ -162,7 +180,7 @@ export default function RunControls() {
                                 <th className="text-left py-1">Paper</th>
                                 <th className="text-left py-1">Stage</th>
                                 <th className="text-left py-1">Error</th>
-                                <th className="text-right py-1">Actions</th>
+                                {isAdmin && <th className="text-right py-1">Actions</th>}
                             </tr>
                         </thead>
                         <tbody>
@@ -171,10 +189,12 @@ export default function RunControls() {
                                     <td className="py-1.5 truncate max-w-[200px]" style={{ color: 'var(--color-text-primary)' }}>{item.paper_id}</td>
                                     <td className="py-1.5" style={{ color: 'var(--color-text-secondary)' }}>{item.stage}</td>
                                     <td className="py-1.5 truncate max-w-[200px]" style={{ color: 'var(--color-error)' }}>{item.error}</td>
-                                    <td className="py-1.5 text-right">
-                                        <button onClick={() => handleRetry(item.id)} className="p-1 cursor-pointer" style={{ color: 'var(--color-accent)' }}><RotateCcw size={12} /></button>
-                                        <button onClick={() => handleSkip(item.id)} className="p-1 cursor-pointer" style={{ color: 'var(--color-text-muted)' }}><SkipForward size={12} /></button>
-                                    </td>
+                                    {isAdmin && (
+                                        <td className="py-1.5 text-right">
+                                            <button onClick={() => handleRetry(item.id)} className="p-1 cursor-pointer" style={{ color: 'var(--color-accent)' }}><RotateCcw size={12} /></button>
+                                            <button onClick={() => handleSkip(item.id)} className="p-1 cursor-pointer" style={{ color: 'var(--color-text-muted)' }}><SkipForward size={12} /></button>
+                                        </td>
+                                    )}
                                 </tr>
                             ))}
                         </tbody>

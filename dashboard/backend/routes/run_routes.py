@@ -1,7 +1,7 @@
 """Run control routes: status, precheck, start, stop."""
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
-from auth import require_viewer, require_operator, TokenPayload
+from auth import require_viewer, require_admin, TokenPayload
 from command_runner import tracker
 
 router = APIRouter()
@@ -21,7 +21,7 @@ async def get_status(_user: TokenPayload = Depends(require_viewer)):
 
 
 @router.get("/precheck")
-async def precheck(_user: TokenPayload = Depends(require_operator)):
+async def precheck(_user: TokenPayload = Depends(require_admin)):
     """
     Run pre-flight checks before starting the pipeline.
     Returns detailed check results that can be used by the frontend to:
@@ -44,7 +44,7 @@ async def precheck(_user: TokenPayload = Depends(require_operator)):
 
 
 @router.post("/start")
-async def start_pipeline(req: StartRequest, user: TokenPayload = Depends(require_operator)):
+async def start_pipeline(req: StartRequest, user: TokenPayload = Depends(require_admin)):
     try:
         return tracker.start(req.mode, user.sub)
     except ValueError as e:
@@ -56,7 +56,7 @@ async def start_pipeline(req: StartRequest, user: TokenPayload = Depends(require
 
 
 @router.post("/stop")
-async def stop_pipeline(req: StopRequest, user: TokenPayload = Depends(require_operator)):
+async def stop_pipeline(req: StopRequest, user: TokenPayload = Depends(require_admin)):
     try:
         return tracker.stop(req.force, user.sub)
     except RuntimeError as e:

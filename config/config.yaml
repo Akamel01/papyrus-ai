@@ -86,9 +86,9 @@ librarian:
 extraction:
   # Depth-aware fact targets (can be overridden here, defaults from depth_presets.py)
   max_facts:
-    low: 40       # Quick answers: fewer facts, faster
-    medium: 80    # Balanced: moderate fact coverage
-    high: 150     # Comprehensive: maximum evidence
+    low: 20      # Quick answers: fewer facts, faster
+    medium: 40    # Balanced: moderate fact coverage
+    high: 80     # Comprehensive: maximum evidence
 
   # Two-stage extraction settings
   sample_size: 8                    # Chunks to sample for density estimation

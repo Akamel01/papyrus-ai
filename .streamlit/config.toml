@@ -1,3 +1,17 @@
+[server]
+# Maximum size of file uploads (200MB)
+maxUploadSize = 200
+# Maximum message size for WebSocket (200MB)
+maxMessageSize = 200
+# Enable XSRF protection
+enableXsrfProtection = true
+# Headless mode for container deployment
+headless = true
+
+[browser]
+# Don't auto-open browser
+gatherUsageStats = false
+
 [theme]
 primaryColor = "#FFA500"
 backgroundColor = "#0e1117"

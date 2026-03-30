@@ -440,20 +440,33 @@ PDF → Parse (pymupdf4llm) → Chunk (800 tokens) → Embed (Qwen3) → Store (
 - **SQLite tracking:** `bm25_indexed` column enables resume on restart
 - **Graceful shutdown:** Flushes remaining items on sentinel signal
 
-**Tantivy Writer Lock Management:**
+**Tantivy Writer Lock Management (Persistent Writer Pattern):**
+
+On Windows, file locks are not released immediately even after `del writer` + `gc.collect()`. To avoid `LockBusy` errors, the BM25Worker uses a **persistent writer** that is acquired once at startup and reused for all batches:
+
 ```python
-# CRITICAL: Writer must be explicitly released to prevent deadlock
-writer = None
-try:
-    writer = bm25_index.tantivy_index.writer(heap_size=64*1024*1024)
-    # Add documents, commit...
-finally:
-    if writer is not None:
-        del writer
-        import gc
-        gc.collect()
-        bm25_index.tantivy_index.reload()
+# BM25Worker lifecycle
+def run(self):
+    try:
+        self._acquire_writer()  # Once at start
+        while not shutdown:
+            batch = collect_items_from_queue()
+            self._flush_batch(batch)  # Uses self._writer
+    finally:
+        self._release_writer()  # Once at end
+
+def _flush_batch(self, batch):
+    # Reuse persistent writer - no lock acquisition needed
+    for item in batch:
+        self._writer.add_document(doc)
+    self._writer.commit()  # Commit keeps writer open
 ```
+
+**Key Points:**
+- Writer is acquired **once** at BM25Worker start
+- `commit()` is called between batches but writer stays open
+- Writer is only released on graceful shutdown
+- This prevents `LockBusy` errors on Windows
 
 ### 5. Generation (`src/generation/`)
 

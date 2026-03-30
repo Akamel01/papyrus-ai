@@ -32,6 +32,47 @@ def init_auth_state():
             "expires_at": 0,
             "user": None,
         }
+        # Try to restore from localStorage on first load
+        _try_restore_from_storage()
+
+
+def _try_restore_from_storage():
+    """Try to restore auth tokens from browser localStorage via query params."""
+    # Check if we have a token in query params (set by JavaScript on page load)
+    try:
+        params = st.query_params
+        stored_refresh = params.get("_auth_refresh")
+        if stored_refresh:
+            # Clear the query param to avoid URL pollution
+            st.query_params.clear()
+            # Try to refresh using the stored token
+            st.session_state.auth["refresh_token"] = stored_refresh
+            if refresh_tokens():
+                return True
+    except Exception:
+        pass
+    return False
+
+
+def _save_to_storage():
+    """Inject JavaScript to save auth tokens to localStorage."""
+    if st.session_state.auth.get("refresh_token"):
+        # Save refresh token to localStorage via JavaScript
+        refresh_token = st.session_state.auth["refresh_token"]
+        st.markdown(f'''
+        <script>
+            localStorage.setItem('sme_refresh_token', '{refresh_token}');
+        </script>
+        ''', unsafe_allow_html=True)
+
+
+def _clear_storage():
+    """Inject JavaScript to clear auth tokens from localStorage."""
+    st.markdown('''
+    <script>
+        localStorage.removeItem('sme_refresh_token');
+    </script>
+    ''', unsafe_allow_html=True)
 
 
 def is_authenticated() -> bool:
@@ -62,12 +103,26 @@ def get_current_user() -> Optional[AuthUser]:
     if not user_data:
         return None
 
-    return AuthUser(
-        id=user_data["id"],
-        email=user_data["email"],
-        display_name=user_data.get("display_name"),
-        role=user_data["role"]
-    )
+    # Defensive: ensure user_data is a dict (not already an AuthUser)
+    if isinstance(user_data, AuthUser):
+        return user_data
+
+    # Handle dict-like access with proper error handling
+    try:
+        auth_user = AuthUser(
+            id=user_data.get("id", ""),
+            email=user_data.get("email", ""),
+            display_name=user_data.get("display_name"),
+            role=user_data.get("role", "user")
+        )
+        # Cache the AuthUser back to session state to avoid repeated conversions
+        # This ensures isinstance check works on subsequent calls
+        st.session_state.auth["user"] = auth_user
+        return auth_user
+    except (TypeError, AttributeError) as e:
+        # If user_data is not dict-like, clear it and return None
+        st.session_state.auth["user"] = None
+        return None
 
 
 def get_access_token() -> Optional[str]:
@@ -77,9 +132,13 @@ def get_access_token() -> Optional[str]:
     return st.session_state.auth["access_token"]
 
 
-def login(email: str, password: str) -> tuple[bool, str]:
+def login(identifier: str, password: str) -> tuple[bool, str]:
     """
-    Login with email and password.
+    Login with username/email and password.
+
+    Args:
+        identifier: Username or email address
+        password: User's password
 
     Returns:
         (success, message) tuple
@@ -88,9 +147,10 @@ def login(email: str, password: str) -> tuple[bool, str]:
 
     try:
         with httpx.Client(timeout=10.0) as client:
+            # Use 'email' field for compatibility but it accepts username too
             response = client.post(
                 f"{AUTH_SERVICE_URL}/api/auth/login",
-                json={"email": email, "password": password}
+                json={"email": identifier, "password": password}
             )
 
             if response.status_code == 200:
@@ -100,10 +160,17 @@ def login(email: str, password: str) -> tuple[bool, str]:
                 # Fetch user info
                 _fetch_user_info()
 
+                # Persist to localStorage for session recovery
+                _save_to_storage()
+
                 return True, "Login successful"
 
+            elif response.status_code == 400:
+                error = response.json().get("detail", "Invalid input")
+                return False, error
+
             elif response.status_code == 401:
-                return False, "Invalid email or password"
+                return False, "Invalid username/email or password"
 
             elif response.status_code == 403:
                 return False, "Account is disabled"
@@ -183,6 +250,9 @@ def logout():
                 )
         except Exception:
             pass  # Ignore errors, just clear local state
+
+    # Clear localStorage tokens
+    _clear_storage()
 
     # Clear auth state
     st.session_state.auth = {

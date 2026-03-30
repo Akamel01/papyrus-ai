@@ -80,16 +80,31 @@ def render_sidebar() -> SidebarConfig:
                 </div>
                 ''', unsafe_allow_html=True)
             with col2:
-                if st.button("", key="logout_btn", help="Sign out"):
+                if st.button("⏻", key="logout_btn", help="Sign out"):
                     logout()
                     st.rerun()
                 # Style the logout button as icon
                 st.markdown('''
                 <style>
-                    [data-testid="stSidebar"] button[kind="secondary"][data-testid="stButton"]:has([aria-label="Sign out"]) {
+                    /* Logout button - compact icon style */
+                    [data-testid="stSidebar"] [data-testid="stBaseButton-secondary"] {
+                        width: 32px !important;
+                        height: 32px !important;
+                        min-width: 32px !important;
+                        padding: 0 !important;
+                        border-radius: 6px !important;
+                        border: 1px solid #333 !important;
                         background: transparent !important;
-                        border: none !important;
-                        padding: 4px !important;
+                        display: flex !important;
+                        align-items: center !important;
+                        justify-content: center !important;
+                        font-size: 14px !important;
+                        color: #6b7280 !important;
+                    }
+                    [data-testid="stSidebar"] [data-testid="stBaseButton-secondary"]:hover {
+                        border-color: #FFA500 !important;
+                        color: #FFA500 !important;
+                        background: rgba(255, 165, 0, 0.08) !important;
                     }
                 </style>
                 ''', unsafe_allow_html=True)
@@ -255,21 +270,72 @@ def render_sidebar() -> SidebarConfig:
         # No spacer needed
 
         
-        # Reset Button - simple centered, single line
-        st.markdown('''
+        # === UNIFIED BOTTOM ACTIONS ===
+        st.markdown(f'''
+            <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.06);"></div>
             <style>
-            [data-testid="stSidebar"] [data-testid="stButton"] {
-                display: flex;
-                justify-content: center;
-                width: 100%;
-            }
-            [data-testid="stSidebar"] [data-testid="stButton"] button {
-                white-space: nowrap;
-                width: 100%;
-            }
+            [data-testid="stSidebar"] [data-testid="stButton"] button {{
+                width: 100% !important;
+                border-radius: 8px !important;
+                border: 1px solid rgba(255, 255, 255, 0.1) !important;
+                background-color: rgba(255, 255, 255, 0.04) !important;
+                color: {TEXT_GREY} !important;
+                font-weight: 500 !important;
+                font-size: 13px !important;
+                white-space: nowrap !important;
+                transition: all 0.15s ease !important;
+            }}
+            [data-testid="stSidebar"] [data-testid="stButton"] button:hover {{
+                border-color: rgba(255, 165, 0, 0.4) !important;
+                color: #ffa500 !important;
+            }}
+            [data-testid="stSidebar"] [data-testid="stPageLink"] a {{
+                display: block !important;
+                width: 100% !important;
+                padding: 6px 0 !important;
+                border-radius: 8px !important;
+                background: rgba(255, 255, 255, 0.04) !important;
+                color: {TEXT_GREY} !important;
+                font-size: 13px !important;
+                font-weight: 500 !important;
+                text-align: center !important;
+                text-decoration: none !important;
+                border: 1px solid rgba(255, 255, 255, 0.1) !important;
+                transition: all 0.15s ease !important;
+                box-sizing: border-box !important;
+            }}
+            [data-testid="stSidebar"] [data-testid="stPageLink"] a:hover {{
+                border-color: rgba(255, 165, 0, 0.4) !important;
+                color: #ffa500 !important;
+            }}
+            [data-testid="stSidebar"] [data-testid="stPageLink"] a p {{
+                margin: 0 !important;
+                font-size: 13px !important;
+                font-weight: 500 !important;
+                color: inherit !important;
+                justify-content: center !important;
+                width: 100% !important;
+                display: flex !important;
+            }}
+            [data-testid="stSidebar"] [data-testid="stPageLink"] [href$="chat/"] {{
+                background: rgba(255, 165, 0, 0.12) !important;
+                color: {GOLD} !important;
+                border: 1px solid rgba(255, 165, 0, 0.3) !important;
+            }}
             </style>
         ''', unsafe_allow_html=True)
-        if st.button("Reset Session", type="secondary"):
+
+        # Row 1: Main | Auth | Settings — all on one line, rendering as SPA page links
+        nav1, nav2, nav3 = st.columns(3)
+        with nav1:
+            st.page_link("main.py", label="Main")
+        with nav2:
+            st.page_link("pages/auth.py", label="Auth")
+        with nav3:
+            st.page_link("pages/settings.py", label="Settings")
+
+        # Row 2: Reset Session — full width
+        if st.button("Reset Session", type="secondary", use_container_width=True):
             st.session_state.messages = []
             st.session_state.is_processing = False
             st.rerun()

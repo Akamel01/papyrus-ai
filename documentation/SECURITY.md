@@ -134,7 +134,7 @@ Every data access path filters by `user_id` to ensure users can only see their o
 
 | Component | File | Method | Isolation Point |
 |-----------|------|--------|-----------------|
-| Main App | `app/main.py:1162-1168` | `handle_query()` | Extracts user_id from session |
+| Main App | `app/main.py:1166-1172` | `handle_query()` | Extracts user_id from session |
 | Hybrid Search | `src/retrieval/hybrid_search.py:125` | `search()` | Passes user_id to BM25 |
 | Vector Store | `src/indexing/vector_store.py` | `search()` | Qdrant filter condition |
 | Vector Store | `src/indexing/vector_store.py` | `delete()` | user_id filter on delete |
@@ -212,6 +212,53 @@ Papers imported before multi-user mode have `user_id = NULL`:
 if point_user_id is not None and point_user_id != user_id:
     continue  # Skip (different user)
 # If point_user_id is None, include it (legacy shared data)
+```
+
+### Knowledge Source Filtering
+
+The system supports three knowledge source modes controlled via the Chat UI sidebar:
+
+| Mode | Behavior | Qdrant Filter |
+|------|----------|---------------|
+| `shared_only` | Only shared KB | `IsNull(user_id)` |
+| `user_only` | Only user's docs | `Match(user_id, value)` |
+| `both` | User docs + shared | `Should([Match(user_id), IsNull(user_id)])` |
+
+**Implementation (Qdrant):**
+```python
+# src/indexing/vector_store.py
+if knowledge_source == "shared_only":
+    conditions.append(IsNullCondition(is_null=PayloadField(key="user_id")))
+elif knowledge_source == "user_only":
+    conditions.append(FieldCondition(key="user_id", match=MatchValue(value=user_id)))
+elif knowledge_source == "both":
+    # OR condition: user's docs OR shared docs
+    filter = Filter(should=[
+        FieldCondition(key="user_id", match=MatchValue(value=user_id)),
+        IsNullCondition(is_null=PayloadField(key="user_id"))
+    ])
+```
+
+**Quick Uploads (Session Documents):**
+- Always included regardless of knowledge source toggle
+- Stored in Streamlit session state only
+- Not persisted or indexed
+- Highest priority in context
+
+### Document Cascade Delete
+
+When a user deletes a document, cleanup happens in strict order:
+
+1. **Qdrant** - Delete vector embeddings with user_id filter
+2. **BM25 Tantivy** - Delete keyword index entries
+3. **SQLite** - Delete paper record with ownership check
+4. **Disk** - Delete source file from `/data/user_documents/{user_id}/`
+
+```python
+# Ownership verification before delete
+paper = paper_store.get_user_paper(document_id, user_id)
+if not paper:
+    raise HTTPException(404, "Document not found or not owned by you.")
 ```
 
 ---
@@ -372,6 +419,15 @@ docker compose logs cloudflared | grep "trycloudflare.com"
 - [ ] Database queries filter by user_id
 - [ ] Cache keys include user_id prefix
 - [ ] Test: User A cannot see User B's papers
+
+### Knowledge Source Isolation
+
+- [ ] `shared_only` mode only returns user_id=NULL documents
+- [ ] `user_only` mode only returns matching user_id documents
+- [ ] `both` mode correctly combines with OR logic
+- [ ] Document delete verifies ownership before cascade
+- [ ] Quick uploads stay in session only (not persisted)
+- [ ] My Documents API validates user ownership on all operations
 
 ### Encryption
 

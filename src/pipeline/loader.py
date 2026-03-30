@@ -69,7 +69,10 @@ def load_rag_pipeline_core(config_path="config/config.yaml", headless=False):
         "config": config,
         "hybrid_search": create_hybrid_search(config),
         "reranker": create_reranker(
-            model_name=config.get("retrieval", {}).get("reranker_model", "BAAI/bge-reranker-v2-m3"),
+            model_name=config.get("retrieval", {}).get(
+                "reranker_remote_model" if config.get("retrieval", {}).get("reranker_remote_url") else "reranker_model",
+                "BAAI/bge-reranker-v2-m3"
+            ),
             device=config.get("retrieval", {}).get("reranker_device", "cpu"),
             enabled=config.get("retrieval", {}).get("use_reranker", True),
             remote_url=config.get("retrieval", {}).get("reranker_remote_url"),

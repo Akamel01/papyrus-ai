@@ -73,10 +73,20 @@ def _compute_optimal_batch(total_vram_mb: float, model_vram_mb: float,
 class GPUHealthMonitor:
     """
     Background daemon that monitors GPU health and adjusts safe batch size.
-    
+
     Checks every `interval` seconds via nvidia-smi.
     Auto-reduces batch size when VRAM > 90% or temp > 85°C.
     Auto-restores original batch when healthy.
+
+    WARNING: There is a duplicate GPUHealthMonitor in src/pipeline/gpu_tuner.py.
+    Running both monitors simultaneously causes GPU probe contention every 30s.
+
+    TODO: Consolidate into a single shared GPUHealthMonitor with:
+    - Batch size adjustment (this class's functionality)
+    - Warning logging (gpu_tuner.py's functionality)
+    - AutoTuner integration (gpu_tuner.py's functionality)
+
+    Until consolidation, only use ONE monitor per runtime session.
     """
     
     def __init__(self, base_batch_size: int, interval: float = 30.0):

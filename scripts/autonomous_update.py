@@ -63,7 +63,8 @@ stream_out.setFormatter(formatter)
 root_logger.addHandler(stream_out)
 
 # File Handler
-file_out = logging.FileHandler("data/autonomous_update.log")
+from logging.handlers import RotatingFileHandler
+file_out = RotatingFileHandler("data/autonomous_update.log", maxBytes=50*1024*1024, backupCount=2)
 file_out.setFormatter(formatter)
 root_logger.addHandler(file_out)
 
@@ -209,6 +210,18 @@ def _discovery_worker(discoverer: PaperDiscoverer, paper_store: PaperStore, conf
 
 def _resume_bm25_indexing(paper_store: PaperStore, bm25_index, vector_store) -> int:
     """
+    DEPRECATED: This blocking function holds the Tantivy writer lock for the entire
+    batch, which can cause LockBusy errors if other BM25 operations run concurrently.
+
+    Use _resume_bm25_async() instead, which queues items to the BM25Worker
+    for non-blocking processing.
+
+    This function is kept for reference but is NOT called anywhere in the codebase.
+    The async variant (_resume_bm25_async) is used at line 895.
+
+    TODO: Remove this function after confirming _resume_bm25_async works correctly.
+
+    Original description:
     Index papers that are embedded but not yet BM25 indexed.
 
     This handles the gap when the pipeline stops with papers embedded in Qdrant

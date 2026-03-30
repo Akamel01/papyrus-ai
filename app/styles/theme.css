@@ -293,6 +293,53 @@ div[data-baseweb="slider"]>div>div>div:first-child {
     color: #f59e0b !important;
 }
 
+/* ===== TEXTAREA DARK THEME ===== */
+.stTextArea textarea {
+    background-color: #171717 !important;
+    color: #e5e7eb !important;
+    border: 1px solid #404040 !important;
+    border-radius: 12px !important;
+}
+
+.stTextArea textarea:focus {
+    border-color: #f59e0b !important;
+    box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.3) !important;
+}
+
+/* ===== FILE UPLOADER DARK THEME ===== */
+[data-testid="stFileUploader"] {
+    background-color: transparent !important;
+}
+
+[data-testid="stFileUploader"] section {
+    background-color: #1a1a1a !important;
+    border: 1px dashed #404040 !important;
+    border-radius: 8px !important;
+}
+
+[data-testid="stFileUploader"] section > div {
+    background-color: transparent !important;
+}
+
+[data-testid="stFileUploader"] button {
+    background-color: #262626 !important;
+    color: #9ca3af !important;
+    border: 1px solid #404040 !important;
+    border-radius: 6px !important;
+    width: auto !important;
+    min-width: 120px !important;
+}
+
+[data-testid="stFileUploader"] button:hover {
+    border-color: #f59e0b !important;
+    color: #f59e0b !important;
+}
+
+[data-testid="stFileUploader"] small,
+[data-testid="stFileUploader"] span {
+    color: #6b7280 !important;
+}
+
 /* ===== SIDEBAR OVERLAY ===== */
 .sidebar-overlay {
     position: fixed;

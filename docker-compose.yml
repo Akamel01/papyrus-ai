@@ -78,7 +78,38 @@ services:
           echo "Tunnel will not work. Run: cloudflared tunnel create papyrus-tunnel"
           echo "Continuing without tunnel credentials..."
         else
-          echo "OK: cloudflared-credentials.json"
+          # Validate Cloudflare credentials JSON structure
+          if ! command -v jq &> /dev/null; then
+            echo "WARNING: jq not found, installing..."
+            apk add --no-cache jq > /dev/null 2>&1
+          fi
+
+          # Check required fields: AccountTag, TunnelSecret, TunnelID, Endpoint
+          CREDS=/mnt/config/cloudflared-credentials.json
+          if ! jq empty "$CREDS" 2>/dev/null; then
+            echo "ERROR: cloudflared-credentials.json is not valid JSON"
+            exit 1
+          fi
+
+          # Verify all required fields are present and non-empty
+          for field in AccountTag TunnelSecret TunnelID Endpoint; do
+            value=$(jq -r ".$field // empty" "$CREDS" 2>/dev/null)
+            if [ -z "$value" ]; then
+              echo "ERROR: cloudflared-credentials.json field '$field' is empty or missing"
+              echo "HINT: Run 'cloudflared tunnel create papyrus-tunnel' to regenerate"
+              exit 1
+            fi
+          done
+
+          # Verify Endpoint is a valid HTTPS URL
+          endpoint=$(jq -r '.Endpoint' "$CREDS" 2>/dev/null)
+          if [[ ! "$endpoint" =~ ^https:// ]]; then
+            echo "ERROR: Endpoint is not a valid HTTPS URL: $endpoint"
+            echo "HINT: Endpoint should be something like: https://tunnel.cloudflare.com"
+            exit 1
+          fi
+
+          echo "OK: cloudflared-credentials.json (Endpoint: ${endpoint:0:30}...)"
         fi &&
 
         echo "=== All mounts validated ==="
@@ -124,10 +155,12 @@ services:
           memory: 4G # Guaranteed minimum for HNSW graph + SQ index
     stop_grace_period: 30s # Allow time for WAL flush on shutdown
     healthcheck:
+      # Qdrant image has no curl/wget - use TCP port check with longer start_period for index loading
       test: [ "CMD-SHELL", "bash -c '(echo > /dev/tcp/localhost/6333) >/dev/null 2>&1'" ]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 60s  # Give time for HNSW index loading
     restart: always
 
   ollama:
@@ -154,10 +187,12 @@ services:
               count: 1
               capabilities: [ gpu ]
     healthcheck:
+      # Ollama image has no curl - use TCP port check with longer start_period for model loading
       test: [ "CMD-SHELL", "bash -c '(echo > /dev/tcp/localhost/11434) >/dev/null 2>&1'" ]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 120s  # Give time for initial model load
     restart: always
 
   app:
@@ -238,8 +273,7 @@ services:
     depends_on:
       qdrant:
         condition: service_healthy
-      app:
-        condition: service_healthy
+      # REMOVED: app dependency - breaks circular pressure under memory stress
       auth:
         condition: service_healthy
     healthcheck:
@@ -335,20 +369,18 @@ services:
     depends_on:
       init-validator:
         condition: service_completed_successfully  # Block until mounts validated
-      auth:
-        condition: service_healthy
       app:
         condition: service_healthy
       dashboard-ui:
         condition: service_healthy
-      dashboard-backend:
-        condition: service_healthy
+      # REMOVED: auth, dashboard-backend (redundant - already deps of app/dashboard-ui)
     healthcheck:
+      # Check port 80 - admin API (2019) not accessible from within container
       test: [ "CMD-SHELL", "wget -q --spider http://localhost:80/ || exit 1" ]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 15s
+      start_period: 30s  # Give backends time to start
     restart: always  # Always restart, even after Docker daemon restart
 
   # ─── Deploy Webhook Service (Auto-deploy on CI success) ───
@@ -375,7 +407,7 @@ services:
 
   # ─── Cloudflare Tunnel (Public Access via papyrus-ai.net) ───
   cloudflared:
-    image: cloudflare/cloudflared:latest
+    image: cloudflare/cloudflared:2024.12.2  # Pinned to stable version
     container_name: sme_tunnel
     logging: *default-logging
     # Named tunnel mode: requires credentials file from 'cloudflared tunnel create'
@@ -395,6 +427,8 @@ services:
         condition: service_healthy
     # Note: No healthcheck - cloudflared is a distroless image with no shell
     # Docker monitors the process directly via restart policy
+    stop_grace_period: 30s  # Allow graceful tunnel disconnect
+    stop_signal: SIGTERM
     restart: always  # Always restart, even after Docker daemon restart
 
 volumes:

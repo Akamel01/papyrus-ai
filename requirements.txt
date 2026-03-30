@@ -8,7 +8,9 @@ pymupdf4llm>=0.0.5
 
 # Embeddings and ML
 sentence-transformers>=2.2.2
-torch>=2.0.0
+# Pin PyTorch to CUDA 12.4 compatible version (host driver 576.x supports CUDA 12.9)
+# PyTorch 2.11+ requires CUDA 13.0+ which needs newer drivers
+torch==2.5.1
 
 # Vector store (PINNED to be compatible with server version 1.12.6)
 # Server is v1.12.6, using latest 1.12.x client available (1.12.2)

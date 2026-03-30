@@ -214,6 +214,73 @@ SIDEBAR_CSS = f"""
     margin-bottom: 0px !important;
     margin-top: 0px !important;
 }}
+
+/* ===== HIDE DEFAULT STREAMLIT NAVIGATION ===== */
+/* We'll use custom navigation at bottom of sidebar instead */
+[data-testid="stSidebarNav"] {{
+    display: none !important;
+}}
+
+/* ===== FILE UPLOADER DARK THEME ===== */
+/* Fix white background on upload box */
+[data-testid="stSidebar"] [data-testid="stFileUploader"] {{
+    background-color: #1a1a1a !important;
+}}
+
+[data-testid="stSidebar"] [data-testid="stFileUploader"] section,
+[data-testid="stSidebar"] [data-testid="stFileUploadDropzone"] {{
+    background-color: #1a1a1a !important;
+    border: 1px dashed #404040 !important;
+    border-radius: 8px !important;
+    padding: 16px !important;
+}}
+
+[data-testid="stSidebar"] [data-testid="stFileUploader"] section > div,
+[data-testid="stSidebar"] [data-testid="stFileUploadDropzone"] > div {{
+    background-color: transparent !important;
+}}
+
+/* File uploader text */
+[data-testid="stSidebar"] [data-testid="stFileUploader"] small {{
+    color: {MUTED_TEXT} !important;
+}}
+
+[data-testid="stSidebar"] [data-testid="stFileUploader"] span {{
+    color: {TEXT_GREY} !important;
+}}
+
+/* Browse files button - proper sizing */
+[data-testid="stSidebar"] [data-testid="stFileUploader"] button,
+[data-testid="stSidebar"] [data-testid="stFileUploader"] [data-testid="stBaseButton-secondary"],
+[data-testid="stSidebar"] [data-testid="stFileUploader"] [data-testid="baseButton-secondary"] {{
+    background-color: #262626 !important;
+    color: {TEXT_GREY} !important;
+    border: 1px solid #404040 !important;
+    border-radius: 6px !important;
+    padding: 8px 16px !important;
+    width: 100% !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    transition: all 0.15s ease !important;
+}}
+
+[data-testid="stSidebar"] [data-testid="stFileUploader"] button:hover {{
+    border-color: {GOLD} !important;
+    color: {GOLD} !important;
+    background-color: rgba(255, 165, 0, 0.08) !important;
+}}
+
+/* File uploader drag area text styling */
+[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"],
+[data-testid="stSidebar"] [data-testid="stFileUploadDropzone"] {{
+    background-color: #1a1a1a !important;
+    border-color: #404040 !important;
+}}
+
+[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] > div,
+[data-testid="stSidebar"] [data-testid="stFileUploadDropzone"] > div {{
+    color: {TEXT_GREY} !important;
+}}
 </style>
 """
 

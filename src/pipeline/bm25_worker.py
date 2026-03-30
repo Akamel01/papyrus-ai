@@ -84,12 +84,46 @@ class BM25Worker:
         # Shutdown flag
         self._shutdown = threading.Event()
 
+        # Persistent writer (reused across batches to avoid LockBusy errors)
+        self._writer = None
+
+    def _acquire_writer(self):
+        """Acquire Tantivy writer (called once at start)."""
+        import tantivy
+        self._writer = self.bm25_index.tantivy_index.writer(
+            heap_size=self.heap_size_mb * 1024 * 1024
+        )
+        logger.info("[BM25-WORKER] Acquired Tantivy writer")
+
+    def _release_writer(self):
+        """Release Tantivy writer and clean up file locks."""
+        if self._writer is not None:
+            try:
+                # Commit any pending changes
+                self._writer.commit()
+            except Exception as e:
+                logger.warning(f"[BM25-WORKER] Final commit warning: {e}")
+            try:
+                del self._writer
+                self._writer = None
+                import gc
+                gc.collect()
+                # Reload index to release any lingering file handles
+                self.bm25_index.tantivy_index.reload()
+                logger.info("[BM25-WORKER] Released Tantivy writer")
+            except Exception as e:
+                logger.warning(f"[BM25-WORKER] Writer cleanup warning: {e}")
+
     def run(self):
         """
         Main loop - batch accumulation with periodic commits.
 
         Runs until sentinel is received or shutdown event is set.
         On exit, flushes any remaining items in the batch.
+
+        CRITICAL: Uses a SINGLE persistent writer across all batches to avoid
+        LockBusy errors on Windows. Writer is acquired once at start and
+        released only on shutdown.
         """
         logger.info(
             f"[BM25-WORKER] Started | batch_size={self.batch_size}, "
@@ -100,6 +134,9 @@ class BM25Worker:
         batch_deadline = time.monotonic() + self.commit_interval
 
         try:
+            # Acquire writer ONCE for the entire run
+            self._acquire_writer()
+
             while not self._shutdown.is_set():
                 # Calculate remaining time until batch timeout
                 remaining = max(0.1, batch_deadline - time.monotonic())
@@ -139,6 +176,8 @@ class BM25Worker:
                 except Exception:
                     logger.error("[BM25-WORKER] Failed to flush batch on error")
         finally:
+            # CRITICAL: Always release writer on exit
+            self._release_writer()
             with self._lock:
                 logger.info(
                     f"[BM25-WORKER] Stopped | papers={self.papers_indexed}, "
@@ -149,44 +188,44 @@ class BM25Worker:
         """
         Commit batch to Tantivy and mark papers as indexed in SQLite.
 
+        Uses the persistent writer (self._writer) that was acquired once in run().
+        This avoids LockBusy errors that occur when creating/destroying writers
+        for each batch.
+
         This is an atomic operation - either all items in the batch are
         committed and marked, or none are (on error).
-
-        CRITICAL: Writer must ALWAYS be cleaned up in finally block to prevent
-        holding the lock indefinitely on exceptions.
         """
         if not batch:
+            return
+
+        if self._writer is None:
+            logger.error("[BM25-WORKER] No writer available - skipping batch")
             return
 
         start_time = time.perf_counter()
         total_chunks = sum(len(item.chunk_ids) for item in batch)
         paper_ids = [item.paper_unique_id for item in batch]
 
-        writer = None
         chunks_added = 0
         try:
-            # Get Tantivy writer
             import tantivy
-            writer = self.bm25_index.tantivy_index.writer(
-                heap_size=self.heap_size_mb * 1024 * 1024
-            )
 
-            # Add all documents
+            # Add all documents using the persistent writer
             for item in batch:
                 for chunk_id, text in zip(item.chunk_ids, item.texts):
                     if not text.strip():
                         continue
                     try:
                         doc_dict = {"id": str(chunk_id), "text": text}
-                        writer.add_document(
+                        self._writer.add_document(
                             tantivy.Document.from_dict(doc_dict, self.bm25_index.schema)
                         )
                         chunks_added += 1
                     except Exception as e:
                         logger.warning(f"[BM25-WORKER] Failed to add chunk {chunk_id}: {e}")
 
-            # Commit to Tantivy
-            writer.commit()
+            # Commit to Tantivy (keeps writer open for next batch)
+            self._writer.commit()
 
             # Mark papers as BM25 indexed in SQLite
             marked = self.paper_store.mark_bm25_indexed(paper_ids)
@@ -211,18 +250,15 @@ class BM25Worker:
                 exc_info=True
             )
             # Don't mark as indexed - will be retried on resume
-
-        finally:
-            # CRITICAL: Always release writer lock to prevent index deadlock
-            if writer is not None:
+            # NOTE: On fatal writer error, we may need to re-acquire the writer
+            if "LockBusy" in str(e) or "writer" in str(e).lower():
+                logger.warning("[BM25-WORKER] Writer may be corrupted, attempting recovery...")
                 try:
-                    del writer
-                    import gc
-                    gc.collect()
-                    # Reload index to release any lingering file handles
-                    self.bm25_index.tantivy_index.reload()
-                except Exception as cleanup_err:
-                    logger.warning(f"[BM25-WORKER] Writer cleanup warning: {cleanup_err}")
+                    self._release_writer()
+                    time.sleep(1)  # Brief pause before re-acquiring
+                    self._acquire_writer()
+                except Exception as recovery_err:
+                    logger.error(f"[BM25-WORKER] Writer recovery failed: {recovery_err}")
 
     def shutdown(self):
         """Signal the worker to stop."""

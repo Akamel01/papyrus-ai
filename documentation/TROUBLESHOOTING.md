@@ -303,6 +303,38 @@ View watchdog logs: `Get-Content logs/docker-watchdog.log -Tail 20`
 
 ## Pipeline Issues
 
+### BM25 LockBusy Errors
+
+**Symptoms:**
+- Error message: `Failed to acquire Lockfile: LockBusy`
+- Error mentions: "there is already an `IndexWriter` working on this `Directory`"
+- BM25 indexing fails repeatedly while other pipeline operations succeed
+- Logs show many "Failed to flush batch" errors
+
+**Cause:**
+This issue was caused by the BM25Worker creating a new Tantivy writer for each batch and attempting to release it afterward. On Windows, file locks are not immediately released even after `del writer` + `gc.collect()`, causing subsequent batches to fail when trying to acquire a new writer.
+
+**Solution:**
+This issue was fixed by changing the BM25Worker to use a **persistent writer pattern**:
+- The writer is acquired once when the BM25Worker starts
+- The same writer is reused for all batches (only `commit()` is called between batches)
+- The writer is only released when the BM25Worker shuts down
+
+If you encounter this error on an older version, update to the latest code:
+```bash
+git pull
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d app
+```
+
+**Verification:**
+Check the logs for successful BM25 commits:
+```bash
+docker exec sme_app sh -c "grep 'BM25-WORKER.*Committed' /app/data/autonomous_update.log | tail -5"
+# Should show: "[BM25-WORKER] Committed batch: 50 papers, XXXX chunks..."
+```
+
+---
+
 ### Pipeline Keeps Restarting (Circuit Breaker)
 
 **Symptoms:**

@@ -818,29 +818,38 @@ print(f'Tantivy documents: {searcher.num_docs}')
 "
 ```
 
-### Verifying Tantivy Writer Lock
+### Understanding the BM25 Persistent Writer Pattern
 
-If you see "LockBusy" errors, verify the writer is being released:
+The BM25Worker uses a **persistent writer pattern** to avoid `LockBusy` errors on Windows. On Windows, file locks are not released immediately even after `del writer` + `gc.collect()`.
 
+**Pattern:**
+```python
+# BM25Worker acquires writer ONCE at start
+def run(self):
+    try:
+        self._acquire_writer()  # Once
+        while not shutdown:
+            self._flush_batch(batch)  # Reuses self._writer
+    finally:
+        self._release_writer()  # Once at end
+
+# Batches use the persistent writer
+def _flush_batch(self, batch):
+    for item in batch:
+        self._writer.add_document(doc)
+    self._writer.commit()  # Keeps writer open
+```
+
+**Why this matters:**
+- Creating a new writer per batch causes `LockBusy` errors on Windows
+- The persistent writer is held for the entire BM25Worker lifetime
+- Only `commit()` is called between batches; writer stays open
+- This is why BM25Worker must be started as a single thread
+
+**Verifying BM25Worker is running:**
 ```bash
-docker exec -it sme_app python -c "
-from src.indexing.bm25_index import create_bm25_index
-import gc
-
-bm25 = create_bm25_index('data/bm25_index_tantivy', use_tantivy=True)
-
-# Acquire and release writer
-writer = bm25.tantivy_index.writer(heap_size=64*1024*1024)
-del writer
-gc.collect()
-bm25.tantivy_index.reload()
-
-# Should succeed - lock released
-writer2 = bm25.tantivy_index.writer(heap_size=64*1024*1024)
-print('Lock released correctly!')
-del writer2
-gc.collect()
-"
+docker exec sme_app sh -c "grep 'BM25-WORKER.*Committed' /app/data/autonomous_update.log | tail -5"
+# Should show: "[BM25-WORKER] Committed batch: 50 papers, XXXX chunks..."
 ```
 
 ### Migrating the Database

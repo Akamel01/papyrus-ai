@@ -63,14 +63,14 @@ export default function Dashboard() {
     const [proj, setProj] = useState<{ mean_per_day: number; rate_per_hr: number }>({ mean_per_day: 0, rate_per_hr: 0 })
 
     useEffect(() => {
-        // Initial fetch
+        // Initial fetch (one-time on mount)
         db.counts().then(setCounts).catch(() => { })
         qdrant.stats().then(setQStats).catch(() => { })
         run.status().then(setRunStatus).catch(() => { })
         metrics.system().then(setSysMetrics).catch(() => { })
         metrics.projection().then(setProj).catch(() => { })
 
-        // WebSocket push
+        // WebSocket push — all updates arrive via events, no polling needed
         const unsubs = [
             dashboardWS.on('metrics.update', (p: unknown) => {
                 const data = p as any;
@@ -78,17 +78,16 @@ export default function Dashboard() {
                 if (data.counts) setCounts(data.counts);
             }),
             dashboardWS.on('counts.update', (p: unknown) => setCounts(p as typeof counts)),
+            dashboardWS.on('run.update', (p: unknown) => setRunStatus(p as typeof runStatus)),
+            dashboardWS.on('qdrant.update', (p: unknown) => setQStats(p as typeof qStats)),
         ]
 
-        // Poll less-frequent data (Reduced to 3s per user request)
-        const interval = setInterval(() => {
-            db.counts().then(setCounts).catch(() => { })
-            qdrant.stats().then(setQStats).catch(() => { })
-            run.status().then(setRunStatus).catch(() => { })
+        // Projection updates every 30s (lightweight, derived data)
+        const projInterval = setInterval(() => {
             metrics.projection().then(setProj).catch(() => { })
-        }, 3000)
+        }, 30000)
 
-        return () => { unsubs.forEach(fn => fn()); clearInterval(interval) }
+        return () => { unsubs.forEach(fn => fn()); clearInterval(projInterval) }
     }, [])
 
     const uptime = runStatus.uptime_sec

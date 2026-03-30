@@ -292,7 +292,7 @@ class ChunkStage(PipelineStage):
                 continue
 
             # Diagnostic logging - START
-            logger.info(f"[CHUNK-START] Paper={paper.unique_id}, Title='{paper.title[:50]}...', PDF={paper.pdf_path}")
+            logger.debug(f"[CHUNK-START] Paper={paper.unique_id}, Title='{paper.title[:50]}...', PDF={paper.pdf_path}")
 
             try:
                 # 1. Parse PDF
@@ -303,7 +303,7 @@ class ChunkStage(PipelineStage):
                     yield item
                     continue
                 
-                logger.info(f"[CHUNK-PARSE] Parsing PDF: {paper.pdf_path}")
+                logger.debug(f"[CHUNK-PARSE] Parsing PDF: {paper.pdf_path}")
                 text_content = self.parser(paper.pdf_path)
                 
                 # Fix 2.2: Zombie Paper Handling
@@ -316,7 +316,7 @@ class ChunkStage(PipelineStage):
                 
                 # Log extracted content size (text_content may be Document or string)
                 content_len = len(text_content.full_text) if hasattr(text_content, 'full_text') else len(str(text_content))
-                logger.info(f"[CHUNK-PARSE] Extracted {content_len} characters")
+                logger.debug(f"[CHUNK-PARSE] Extracted {content_len} characters")
                      
                 # 2. Chunk
                 chunks = self.chunker(text_content)
@@ -406,7 +406,7 @@ class EmbedStage(PipelineStage):
             
             # Diagnostic logging - START
             total_chunks = len(chunks)
-            logger.info(f"[EMBED-START] Paper={paper_id}, Chunks={total_chunks}, embedder.batch_size={self.embedder.batch_size}")
+            logger.debug(f"[EMBED-START] Paper={paper_id}, Chunks={total_chunks}, embedder.batch_size={self.embedder.batch_size}")
             start_time = time.time()
 
             try:
@@ -416,7 +416,7 @@ class EmbedStage(PipelineStage):
                 # SMART BATCHING: Pass ALL texts at once
                 # sentence-transformers will sort by length to minimize padding
                 # and batch according to embedder.batch_size
-                logger.info(f"[EMBED-PROCESS] Embedding {total_chunks} texts with Smart Batching...")
+                logger.debug(f"[EMBED-PROCESS] Embedding {total_chunks} texts with Smart Batching...")
                 all_vectors = self.embedder.embed(texts)
                 
                 # Log embedding dimension
@@ -493,7 +493,7 @@ class StorageStage(PipelineStage):
                 continue
 
             # Diagnostic logging - START
-            logger.info(f"[STORAGE-START] Paper={paper.unique_id}, Title='{paper.title[:50]}...', Chunks={len(chunks)}")
+            logger.debug(f"[STORAGE-START] Paper={paper.unique_id}, Title='{paper.title[:50]}...', Chunks={len(chunks)}")
             
             # Validate embeddings before upsert
             null_embeddings = sum(1 for c in chunks if c.embedding is None)
@@ -502,17 +502,17 @@ class StorageStage(PipelineStage):
             
             # Sample embedding dimension check
             if chunks and chunks[0].embedding:
-                logger.info(f"[STORAGE-SAMPLE] First chunk embedding_dim={len(chunks[0].embedding)}")
+                logger.debug(f"[STORAGE-SAMPLE] First chunk embedding_dim={len(chunks[0].embedding)}")
 
             try:
                 # 1. Upsert to Qdrant (Fix 2.10)
-                logger.info(f"[STORAGE-UPSERT] Calling vector_store.upsert() for {len(chunks)} chunks...")
+                logger.debug(f"[STORAGE-UPSERT] Calling vector_store.upsert() for {len(chunks)} chunks...")
                 self.vector_store.upsert(chunks)
-                logger.info(f"[STORAGE-UPSERT] vector_store.upsert() completed successfully")
+                logger.debug(f"[STORAGE-UPSERT] vector_store.upsert() completed successfully")
                 
                 # 2. Atomic Status Update (Fix 2.1)
                 # Only AFTER all chunks are safely in Qdrant do we mark 'embedded'.
-                logger.info(f"[STORAGE-STATUS] Updating paper status to 'embedded'...")
+                logger.debug(f"[STORAGE-STATUS] Updating paper status to 'embedded'...")
                 self.paper_store.update_status(paper.unique_id, "embedded")
                 logger.info(f"[STORAGE-COMPLETE] Paper={paper.unique_id} successfully embedded and saved!")
 
