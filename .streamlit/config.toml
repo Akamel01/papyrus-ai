@@ -7,6 +7,10 @@ maxMessageSize = 200
 enableXsrfProtection = true
 # Headless mode for container deployment
 headless = true
+# Disable file watcher — not needed in Docker, and causes hundreds of
+# spurious "ModuleNotFoundError: No module named 'torchvision'" log spam
+# from Streamlit trying to inspect transformers library modules for hot-reload.
+fileWatcherType = "none"
 
 [browser]
 # Don't auto-open browser
