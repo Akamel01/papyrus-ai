@@ -185,7 +185,7 @@ def login(identifier: str, password: str) -> tuple[bool, str]:
         return False, f"Login error: {str(e)}"
 
 
-def register(email: str, password: str, display_name: Optional[str] = None) -> tuple[bool, str]:
+def register(email: str, password: str, display_name: Optional[str] = None, username: Optional[str] = None) -> tuple[bool, str]:
     """
     Register a new account.
 
@@ -197,6 +197,8 @@ def register(email: str, password: str, display_name: Optional[str] = None) -> t
     try:
         with httpx.Client(timeout=10.0) as client:
             payload = {"email": email, "password": password}
+            if username:
+                payload["username"] = username
             if display_name:
                 payload["display_name"] = display_name
 

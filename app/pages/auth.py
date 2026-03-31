@@ -164,6 +164,12 @@ def render_register_form():
         key="register_email"
     )
 
+    username = st.text_input(
+        "Username (optional)",
+        placeholder="e.g. johndoe  —  use this to sign in without email",
+        key="register_username"
+    )
+
     display_name = st.text_input(
         "Display Name (optional)",
         placeholder="Your name",
@@ -203,6 +209,7 @@ def render_register_form():
                 with st.spinner("Creating account..."):
                     success, message = register(
                         email=email,
+                        username=username if username else None,
                         password=password,
                         display_name=display_name if display_name else None
                     )

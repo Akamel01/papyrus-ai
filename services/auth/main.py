@@ -284,8 +284,25 @@ async def get_current_user(
 
 class RegisterRequest(BaseModel):
     email: EmailStr
+    username: Optional[str] = None  # Optional username for login without email
     password: str
     display_name: Optional[str] = None
+
+    @field_validator("username", mode="before")
+    @classmethod
+    def validate_username(cls, v):
+        if v is None or v == "":
+            return None
+        v = v.strip()
+        if len(v) < 3:
+            raise ValueError("Username must be at least 3 characters")
+        if len(v) > 30:
+            raise ValueError("Username cannot exceed 30 characters")
+        if "@" in v:
+            raise ValueError("Username cannot contain '@'")
+        if not re.match(r'^[a-zA-Z0-9_-]+$', v):
+            raise ValueError("Username can only contain letters, numbers, underscores and hyphens")
+        return v
 
     @field_validator("email")
     @classmethod
@@ -428,9 +445,19 @@ async def register(request: RegisterRequest, req: Request, db: DBSession = Depen
             detail="Email already registered"
         )
 
+    # Check if username already exists (if provided)
+    if request.username:
+        existing_username = db.query(User).filter(User.username == request.username).first()
+        if existing_username:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Username already taken"
+            )
+
     # Create user
     user = User(
         email=request.email,
+        username=request.username,
         password_hash=hash_password(request.password),
         display_name=request.display_name
     )
