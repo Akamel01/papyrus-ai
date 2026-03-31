@@ -41,10 +41,13 @@ def run_deploy():
     """
     logger.info(f"Starting deployment at {datetime.now().isoformat()}")
 
-    # Services to update (excluding deploy-hook to avoid self-restart)
+    # Application services to update (code changes affect these)
+    # Excluded: caddy, cloudflared — infrastructure with host-path file mounts that
+    # fail when docker compose resolves paths from inside the container (/opt/sme
+    # is not a valid host path in WSL2). Their configs don't change on code pushes.
+    # Excluded: deploy-hook — avoid self-restart mid-deployment.
     services = [
-        "app", "auth", "dashboard-backend", "dashboard-ui",
-        "caddy", "cloudflared", "gpu-exporter"
+        "app", "auth", "dashboard-backend", "dashboard-ui", "gpu-exporter"
     ]
 
     try:
