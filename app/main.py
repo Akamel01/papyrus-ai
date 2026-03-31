@@ -202,7 +202,10 @@ def load_rag_pipeline():
             severity="critical",
             context={"step": "load_rag_pipeline"}
         )
-        st.error(f"Failed to load RAG pipeline: {e}")
+        # Do NOT call st.* here — cache_resource runs outside any layout context
+        # and replaying a cached st.error() on a different layout block causes:
+        # "streamlit element is called on some layout block created outside the function"
+        logger.critical(f"Failed to load RAG pipeline: {e}")
         return None
 
 
