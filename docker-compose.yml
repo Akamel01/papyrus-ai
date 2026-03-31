@@ -1,3 +1,9 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# STARTUP: Always use scripts/start-system.ps1 on first boot or after WSL restart.
+#   (1) Prunes stale Docker builder cache  → prevents WSL Ext4 corruption
+#   (2) Forces Cloudflare DNS route sync   → prevents orphaned DNS if tunnel regenerated
+# ═══════════════════════════════════════════════════════════════════════════════
+
 x-logging: &default-logging
   driver: "json-file"
   options:
@@ -95,14 +101,14 @@ services:
           for field in AccountTag TunnelSecret TunnelID Endpoint; do
             value=$$(jq -r ".$$field // empty" $$CREDS 2>/dev/null)
             if [ -z "$$value" ]; then
-              echo "ERROR: cloudflared-credentials.json field '$$field' is empty or missing"
-              echo "HINT: Run 'cloudflared tunnel create papyrus-tunnel' to regenerate"
+              echo "ERROR: cloudflared-credentials.json field \"$$field\" is empty or missing"
+              echo "HINT: Run \"cloudflared tunnel create papyrus-tunnel\" to regenerate"
               exit 1
             fi
           done
 
           # Verify Endpoint is a valid HTTPS URL
-          endpoint=$$(jq -r '.Endpoint' $$CREDS 2>/dev/null)
+          endpoint=$$(jq -r ".Endpoint" $$CREDS 2>/dev/null)
           if [ -z "$$endpoint" ] || ! echo "$$endpoint" | grep -q "^https://"; then
             echo "ERROR: Endpoint is not a valid HTTPS URL: $$endpoint"
             echo "HINT: Endpoint should be something like: https://tunnel.cloudflare.com"
@@ -110,6 +116,19 @@ services:
           fi
 
           echo "OK: cloudflared-credentials.json"
+
+          # --- Cross-check: TunnelID in credentials must match tunnel ID in config ---
+          CREDS_ID=$$(jq -r ".TunnelID" $$CREDS 2>/dev/null)
+          CONFIG_ID=$$(grep "^tunnel:" /mnt/config/cloudflared-config.yml 2>/dev/null | cut -d" " -f2)
+          if [ -n "$$CREDS_ID" ] && [ -n "$$CONFIG_ID" ] && [ "$$CREDS_ID" != "$$CONFIG_ID" ]; then
+            echo "ERROR: Tunnel ID mismatch!"
+            echo "  credentials.json TunnelID : $$CREDS_ID"
+            echo "  cloudflared-config.yml    : $$CONFIG_ID"
+            echo "HINT: Update cloudflared-config.yml tunnel: field to match credentials.json TunnelID"
+            echo "HINT: Then run scripts/start-system.ps1 to re-register Cloudflare DNS"
+            exit 1
+          fi
+          echo "OK: Tunnel ID cross-check passed ($$CREDS_ID)"
         fi &&
 
         echo "=== All mounts validated ==="
@@ -370,9 +389,9 @@ services:
       init-validator:
         condition: service_completed_successfully  # Block until mounts validated
       app:
-        condition: service_healthy
+        condition: service_started
       dashboard-ui:
-        condition: service_healthy
+        condition: service_started
       # REMOVED: auth, dashboard-backend (redundant - already deps of app/dashboard-ui)
     healthcheck:
       # Check port 80 - admin API (2019) not accessible from within container
@@ -424,7 +443,7 @@ services:
       init-validator:
         condition: service_completed_successfully  # Block until mounts validated
       caddy:
-        condition: service_healthy
+        condition: service_started
     # Note: No healthcheck - cloudflared is a distroless image with no shell
     # Docker monitors the process directly via restart policy
     stop_grace_period: 30s  # Allow graceful tunnel disconnect

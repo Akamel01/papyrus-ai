@@ -81,6 +81,7 @@ logs_dump.txt
 full_logs.txt
 docker_temp.log
 error_inspection.log
+tunnel_logs.txt
 
 # ══════════════════════════════════════════════════════════════
 # IDE / Editor
