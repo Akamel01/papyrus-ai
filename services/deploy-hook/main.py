@@ -41,13 +41,15 @@ def run_deploy():
     """
     logger.info(f"Starting deployment at {datetime.now().isoformat()}")
 
-    # Application services to update (code changes affect these)
-    # Excluded: caddy, cloudflared — infrastructure with host-path file mounts that
-    # fail when docker compose resolves paths from inside the container (/opt/sme
-    # is not a valid host path in WSL2). Their configs don't change on code pushes.
+    # Services safe to restart from inside the container (named volumes only, no host-path mounts).
+    # Excluded: caddy, cloudflared — host-path FILE mounts break when docker compose resolves
+    #   paths from /opt/sme (not a real host path in WSL2).
+    # Excluded: dashboard-backend — host-path DIRECTORY mounts (./config, ./src) also break,
+    #   causing empty /config inside container and 404 on /api/config.
     # Excluded: deploy-hook — avoid self-restart mid-deployment.
+    # Note: app, auth use named volumes only in production compose → safe.
     services = [
-        "app", "auth", "dashboard-backend", "dashboard-ui", "gpu-exporter"
+        "app", "auth", "dashboard-ui", "gpu-exporter"
     ]
 
     try:
