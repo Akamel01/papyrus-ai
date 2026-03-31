@@ -41,15 +41,26 @@ def run_deploy():
     """
     logger.info(f"Starting deployment at {datetime.now().isoformat()}")
 
-    # Services safe to restart from inside the container (named volumes only, no host-path mounts).
-    # Excluded: caddy, cloudflared — host-path FILE mounts break when docker compose resolves
-    #   paths from /opt/sme (not a real host path in WSL2).
-    # Excluded: dashboard-backend — host-path DIRECTORY mounts (./config, ./src) also break,
-    #   causing empty /config inside container and 404 on /api/config.
-    # Excluded: deploy-hook — avoid self-restart mid-deployment.
-    # Note: app, auth use named volumes only in production compose → safe.
+    # ─── Services safe to restart from inside the container ───────────────────
+    # RULE: Only services that use NAMED VOLUMES exclusively are safe.
+    #       Any service with a host-path bind mount (./something:...) MUST be
+    #       excluded — docker compose resolves relative paths against /opt/sme
+    #       (not a real host path in WSL2), creating empty directories instead
+    #       of the real files, silently breaking that service.
+    #
+    # Excluded (host-path bind mounts):
+    #   app              ./config:/app/config:ro       → empty /app/config → "Config file not found"
+    #   dashboard-backend ./config:/config:ro, ./src    → empty /config → 404 on /api/config
+    #   caddy            ./services/caddy/Caddyfile     → mount failure (file becomes dir)
+    #   cloudflared      ./config/cloudflared-*.json/yml → mount failure
+    #   deploy-hook      .:/opt/sme:ro, /var/run/docker.sock → avoid self-restart
+    #
+    # Safe (named volumes only):
+    #   auth             sme_db_data (no host-path mounts)
+    #   dashboard-ui     no volumes at all
+    #   gpu-exporter     no volumes at all
     services = [
-        "app", "auth", "dashboard-ui", "gpu-exporter"
+        "auth", "dashboard-ui", "gpu-exporter"
     ]
 
     try:
