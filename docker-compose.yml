@@ -119,7 +119,7 @@ services:
 
           # --- Cross-check: TunnelID in credentials must match tunnel ID in config ---
           CREDS_ID=$$(jq -r ".TunnelID" $$CREDS 2>/dev/null)
-          CONFIG_ID=$$(grep "^tunnel:" /mnt/config/cloudflared-config.yml 2>/dev/null | cut -d" " -f2)
+          CONFIG_ID=$$(grep "^tunnel:" /mnt/config/cloudflared-config.yml 2>/dev/null | cut -d" " -f2 | tr -d '\r\n ')
           if [ -n "$$CREDS_ID" ] && [ -n "$$CONFIG_ID" ] && [ "$$CREDS_ID" != "$$CONFIG_ID" ]; then
             echo "ERROR: Tunnel ID mismatch!"
             echo "  credentials.json TunnelID : $$CREDS_ID"
