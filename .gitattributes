@@ -1,0 +1,12 @@
+# Force LF line endings for files read by Linux tools inside containers.
+# Prevents CRLF-related comparison failures in shell scripts and YAML parsing.
+* text=auto
+
+*.sh   text eol=lf
+*.py   text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+*.json text eol=lf
+*.toml text eol=lf
+*.env  text eol=lf
+*.md   text eol=lf
